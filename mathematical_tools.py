@@ -1,7 +1,9 @@
 '''
 Any useful mathematical tool should go here
 '''
+from __future__ import division
 import numpy as np
+import math
 from ROOT import gRandom
 gRandom.SetSeed()
 # Cache for quicker running
@@ -43,5 +45,5 @@ def bleed_off_charge(q0, t, tau):
 			   -t/tau
 	q = q0 . e
 	'''
-	q = q0 * exp(-t/tau)
+	q = q0 * math.exp(-t/tau)
 	return q

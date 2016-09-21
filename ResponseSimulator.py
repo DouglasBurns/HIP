@@ -79,36 +79,43 @@ def main():
 	# Initialisations
 	time_to_strip_hit = 0			# Initialise to t=0
 	charge_in_APV = 0				# Initialise to no charge in APV
-	old_charge_in_APV = 0			# Initialise to no left over charge in APV
+	reduced_charge_in_APV = 0			# Initialise to no left over charge in APV
 
 	for i in range(0, g.N_MIPS):
+		if DEBUG:
+			print "-"*50
+			print "Charge Particle {} ".format(i+1)
+			print "- "*25
 		# The next successive strip hit is Poisson. (What is the mean of the poisson though? something to do with average time for interaction?)
 		# In ms/ps/ns?
 		time_to_strip_hit = mt.return_rnd_Poisson(g.AVE_TIME_FOR_STRIP_HIT)
 
 		if DEBUG:
-			print("Time taken for next particle to hit strip : ", time_to_strip_hit)
+			print"Time taken for next particle to hit strip {} ".format(time_to_strip_hit)
 
 		######################################
+		######################################
+		
+		
+		# Calculate amount of charge bled ####
+		reduced_charge_in_APV = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
+
+		if DEBUG:
+			print"Old charge in APV {} ".format(charge_in_APV)
+			print"Charge after bleedoff {} ".format(reduced_charge_in_APV)
+		######################################
+		
 
 		# Calculate charge deposited      ####
 		charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT)
-		if DEBUG:
-			print("Charge deposited in APV : ", charge_deposited_in_APV)
+		charge_in_APV = reduced_charge_in_APV + charge_deposited_in_APV
 
+		if DEBUG:
+			print"New charge deposited in APV {} ".format(charge_deposited_in_APV)
+			print"Current charge in APV {} ".format(charge_in_APV)
 		######################################
 
-		######################################
 
-		# Calculate amount of charge bled ####
-		old_charge_in_APV = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
-		if DEBUG:
-			print("Cumulated charge left in APV : ", old_charge_in_APV)
-		charge_in_APV = old_charge_in_APV + charge_deposited_in_APV
-		if DEBUG:
-			print("Current charge left in APV : ", charge_in_APV)
-
-		######################################
 
 		######################################
 
