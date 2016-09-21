@@ -28,6 +28,7 @@ import global_vars as g
 import mathematical_tools as mt
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas_utils as pu
 
 from argparse import ArgumentParser
 
@@ -130,7 +131,9 @@ def main():
 		d_sim_variables['time'].append(time_of_simulation)
 		######################################
 
-	print d_sim_variables
+	sim = pu.dict_to_df(d_sim_variables)
+	if DEBUG:
+		print sim
 
 		# Total charge in capacitor		  ####
 
