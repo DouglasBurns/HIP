@@ -32,3 +32,16 @@ def return_rnd_Landau(mu, sigma):
 	'''
    	rnd_ld = landau( mu, sigma )
 	return rnd_ld
+
+def bleed_off_charge(q0, t, tau):
+	'''
+	q = charge after bleed off
+	q0 = charge in APV
+	t = time since last collision
+	tau = bleedoff lifetime
+
+			   -t/tau
+	q = q0 . e
+	'''
+	q = q0 * exp(-t/tau)
+	return q

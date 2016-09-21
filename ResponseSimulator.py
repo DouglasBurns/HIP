@@ -23,12 +23,13 @@ Simulate whether this is actually whats happening
 7) Preamplifier response
 	V vs Q
 '''
+# from __future__ import division
+
 import global_vars as g
 import mathematical_tools as mt
 import matplotlib.pyplot as plt
 
-
-
+from argparse import ArgumentParser
 
 def return_is_strip_hit():
 	'''
@@ -64,9 +65,6 @@ def testing_Landau():
 	plt.show()
 	return
 
-
-# AVE_ENERGY_FOR_STRIP_HIT
-# AVE_SIGMA_ENERGY_FOR_STRIP_HIT
 def main():
 	'''
 	Iterate over time (how long?)
@@ -78,25 +76,37 @@ def main():
 	# testing_Poisson()
 	# testing_Landau()
 
-	# Simulation starts at 0 time
-	t = 0
+	# Initialisations
+	time_to_strip_hit = 0			# Initialise to t=0
+	charge_in_APV = 0				# Initialise to no charge in APV
+	old_charge_in_APV = 0			# Initialise to no left over charge in APV
+
 	for i in range(0, g.N_MIPS):
 		# The next successive strip hit is Poisson. (What is the mean of the poisson though? something to do with average time for interaction?)
 		# In ms/ps/ns?
 		time_to_strip_hit = mt.return_rnd_Poisson(g.AVE_TIME_FOR_STRIP_HIT)
 
+		if DEBUG:
+			print("Time taken for next particle to hit strip : ", time_to_strip_hit)
+
 		######################################
 
 		# Calculate charge deposited      ####
-		charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT):
+		charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT)
+		if DEBUG:
+			print("Charge deposited in APV : ", charge_deposited_in_APV)
 
 		######################################
 
 		######################################
 
 		# Calculate amount of charge bled ####
+		old_charge_in_APV = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
+		if DEBUG:
+			print("Cumulated charge left in APV : ", old_charge_in_APV)
 		charge_in_APV = old_charge_in_APV + charge_deposited_in_APV
-		new_charge_in_APV = bleed_off_charge(charge_in_APV, )
+		if DEBUG:
+			print("Current charge left in APV : ", charge_in_APV)
 
 		######################################
 
@@ -128,4 +138,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+	# https://docs.python.org/2/library/argparse.html#module-argparse
+	parser = ArgumentParser(description='Calculates the charge on a APV')
+	parser.add_argument( "-d", "--debug", 
+		dest = "debug",
+		action = "store_true", 
+		# default = False, 
+		help = "For debugging" )
+	args = parser.parse_args()
+	DEBUG = args.debug
+
+	main()

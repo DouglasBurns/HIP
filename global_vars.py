@@ -15,3 +15,7 @@ AVE_TIME_FOR_STRIP_HIT=100
 
 AVE_ENERGY_FOR_STRIP_HIT=100
 SIGMA_ENERGY_FOR_STRIP_HIT=10
+
+# May need to change to bleed off current for capacitor
+# Then compute lifetime for bleedoff
+BLEEDOFF_LIFETIME=10
