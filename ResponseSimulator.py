@@ -23,7 +23,6 @@ Simulate whether this is actually whats happening
 7) Preamplifier response
 	V vs Q
 '''
-# from __future__ import division
 
 import global_vars as g
 import mathematical_tools as mt
@@ -98,10 +97,11 @@ def main():
 		
 		
 		# Calculate amount of charge bled ####
-		reduced_charge_in_APV = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
+		reduced_charge_in_APV, charge_bled_off = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
 
 		if DEBUG:
 			print"Old charge in APV {} ".format(charge_in_APV)
+			print"Charge bled off {} ".format(charge_bled_off)
 			print"Charge after bleedoff {} ".format(reduced_charge_in_APV)
 		######################################
 		

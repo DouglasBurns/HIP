@@ -46,4 +46,4 @@ def bleed_off_charge(q0, t, tau):
 	q = q0 . e
 	'''
 	q = q0 * math.exp(-t/tau)
-	return q
+	return q, q0-q
