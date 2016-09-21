@@ -27,16 +27,9 @@ Simulate whether this is actually whats happening
 import global_vars as g
 import mathematical_tools as mt
 import matplotlib.pyplot as plt
+import numpy as np
 
 from argparse import ArgumentParser
-
-def return_is_strip_hit():
-	'''
-	Is the strip hit in this iteration of time?
-	Return depending on Poisson random number
-	'''
-	is_Hit(False)
-	return is_Hit
 
 def testing_Poisson():
 	'''
@@ -77,22 +70,28 @@ def main():
 
 	# Initialisations
 	time_to_strip_hit = 0			# Initialise to t=0
+	time_of_simulation = 0			# Initialise to t=0
 	charge_in_APV = 0				# Initialise to no charge in APV
-	reduced_charge_in_APV = 0			# Initialise to no left over charge in APV
+	reduced_charge_in_APV = 0		# Initialise to no left over charge in APV
+	d_sim_variables = {}			# At t=0, there is no charge
+	d_sim_variables['time'] = [0]
+	d_sim_variables['charge'] = [0]
 
 	for i in range(0, g.N_MIPS):
 		if DEBUG:
 			print "-"*50
 			print "Charge Particle {} ".format(i+1)
 			print "- "*25
+
 		# The next successive strip hit is Poisson. (What is the mean of the poisson though? something to do with average time for interaction?)
 		# In ms/ps/ns?
+
+		# Calculate time to next hit      ####
 		time_to_strip_hit = mt.return_rnd_Poisson(g.AVE_TIME_FOR_STRIP_HIT)
+		time_of_simulation += time_to_strip_hit
 
 		if DEBUG:
 			print"Time taken for next particle to hit strip {} ".format(time_to_strip_hit)
-
-		######################################
 		######################################
 		
 		
@@ -116,8 +115,22 @@ def main():
 		######################################
 
 
+		# Calculate charge deposited      ####
+		charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT)
+		charge_in_APV = reduced_charge_in_APV + charge_deposited_in_APV
 
+		if DEBUG:
+			print"New charge deposited in APV {} ".format(charge_deposited_in_APV)
+			print"Current charge in APV {} ".format(charge_in_APV)
 		######################################
+
+
+		# Add charge in APV at this time  ####
+		d_sim_variables['charge'].append(charge_in_APV)
+		d_sim_variables['time'].append(time_of_simulation)
+		######################################
+
+	print d_sim_variables
 
 		# Total charge in capacitor		  ####
 

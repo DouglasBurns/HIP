@@ -2,7 +2,7 @@
 Any useful mathematical tool should go here
 '''
 from __future__ import division
-import numpy as np
+
 import math
 from ROOT import gRandom
 gRandom.SetSeed()
