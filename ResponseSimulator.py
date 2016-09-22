@@ -4,7 +4,7 @@ Why is the HIP problem not a problem?
 2) A shaper reduces signal forming a pulse.
 3) For a small pulse this is linear response. At some point the input charge maximises the out voltage
 	and it becomes non linear. Uh Oh.
-4) To get rid of the charge in the capacitor fully a current is passed through capacitor. Reduces this
+4) To get rid of the charge in the capacitor fully, a current is passed through capacitor. Reduces this
 	by an exponential decay with time constant. Previously time constant too large, so charge built up
 	in capacitor leading to non linear response, leading to smaller and smaller pulses.
 5) HIP fix introduced (basically a parameter giving this time constant) allowed much more efficient
@@ -128,6 +128,11 @@ def main():
 		######################################
 
 
+
+		# Charge to Voltage Signal        ####
+		######################################
+
+
 		# Add charge in APV at this time  ####
 		d_sim_variables['charge'].append(charge_in_APV)
 		d_sim_variables['chargeDepos'].append(charge_deposited_in_APV)
@@ -142,16 +147,27 @@ def main():
 
 	fig1 = plt.figure()
 	ax1 = fig1.add_subplot(1, 1, 1)
-	plt.hist(sim['timeAve'], 50, facecolor='green', alpha=0.75)
+	plt.hist(
+		sim['timeAve'], 
+		bins=range(min(sim['timeAve']), max(sim['timeAve']) + 1, 1), # For Ints
+		# bins=np.arange(min(data), max(data) + binwidth, binwidth), # For Floats
+		facecolor='green', 
+		alpha=0.75
+	)
 	ax1.set_xlabel('Time between incoming particles')
-	ax1.set_ylabel('Frequency')
+	ax1.set_ylabel('N')
 
 	fig2 = plt.figure()
 	ax2 = fig2.add_subplot(1, 1, 1)
-	ax2.set_xlim([0,1000])
-	plt.hist(sim['chargeDepos'], 10000, facecolor='green', alpha=0.75)
-	ax2.set_xlabel('Charge on incoming particle')
-	ax2.set_ylabel('Frequency')
+	ax2.set_xlim([0,0.5*pow(10,6)])
+	plt.hist(
+		sim['chargeDepos'], 
+		10000, 
+		facecolor='green', 
+		alpha=0.75
+	)
+	ax2.set_xlabel('Charge on incoming particle (fC) ')
+	ax2.set_ylabel('N')
 
 
 	# sim.plot(kind='line', x='time', y='charge')
