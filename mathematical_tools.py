@@ -4,8 +4,9 @@ Any useful mathematical tool should go here
 from __future__ import division
 
 import math
-from ROOT import gRandom
-gRandom.SetSeed()
+from ROOT import gRandom, TRandom3
+gRandom = TRandom3()
+# gRandom.SetSeed()
 # Cache for quicker running
 landau = gRandom.Landau
 poisson = gRandom.Poisson
