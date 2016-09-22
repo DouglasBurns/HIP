@@ -75,8 +75,10 @@ def main():
 	charge_in_APV = 0				# Initialise to no charge in APV
 	reduced_charge_in_APV = 0		# Initialise to no left over charge in APV
 	d_sim_variables = {}			# At t=0, there is no charge
-	d_sim_variables['time'] = [0]
-	d_sim_variables['charge'] = [0]
+	d_sim_variables['time'] = []
+	d_sim_variables['timeAve'] = []
+	d_sim_variables['charge'] = []
+	d_sim_variables['chargeDepos'] = []
 
 	for i in range(0, g.N_MIPS):
 		if DEBUG:
@@ -128,13 +130,35 @@ def main():
 
 		# Add charge in APV at this time  ####
 		d_sim_variables['charge'].append(charge_in_APV)
+		d_sim_variables['chargeDepos'].append(charge_deposited_in_APV)
+		d_sim_variables['timeAve'].append(time_to_strip_hit)
 		d_sim_variables['time'].append(time_of_simulation)
 		######################################
 
 	sim = pu.dict_to_df(d_sim_variables)
 	if DEBUG:
 		print sim
+	print sim
 
+	fig1 = plt.figure()
+	ax1 = fig1.add_subplot(1, 1, 1)
+	plt.hist(sim['timeAve'], 50, facecolor='green', alpha=0.75)
+	ax1.set_xlabel('Time between incoming particles')
+	ax1.set_ylabel('Frequency')
+
+	fig2 = plt.figure()
+	ax2 = fig2.add_subplot(1, 1, 1)
+	ax2.set_xlim([0,1000])
+	plt.hist(sim['chargeDepos'], 10000, facecolor='green', alpha=0.75)
+	ax2.set_xlabel('Charge on incoming particle')
+	ax2.set_ylabel('Frequency')
+
+
+	# sim.plot(kind='line', x='time', y='charge')
+	# sim.plot(kind='line', x='time', y='charge', ylim=(0,500))
+	# sim.plot(kind='line', x='time', y='charge', xlim=(0,2000), ylim=(0,500))
+
+	plt.show()
 		# Total charge in capacitor		  ####
 
 		######################################
