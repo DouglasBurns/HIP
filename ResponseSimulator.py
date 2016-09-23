@@ -29,9 +29,9 @@ import mathematical_tools as mt
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas_utils as pu
+import file_utils as fu
 
 from argparse import ArgumentParser
-
 def testing_Poisson():
 	'''
 	Quick test of the poisson random number generation
@@ -58,6 +58,37 @@ def testing_Landau():
 	plt.show()
 	return
 
+def testing_Response():
+	'''
+	Quick test of the response
+	MIP 		: 	0 -> 200fC
+	Baseline V 	: 	0 mV
+	'''
+	array = []
+	for i in range (0,500): 
+		# if i == 139: continue
+		array.append(mt.amplifier_response(i, 0))
+	plt.plot(array)
+	# plt.xlim(0, 200) 
+	plt.show()
+
+
+def testing_Response2():
+	'''
+	Quick test of the response
+	Baseline V 	:	0 -> 1000mV
+	MIP 		:	3.75 fC
+	'''
+	array = []
+	for i in range (0,500): 
+		array.append(mt.amplifier_response(3.75, i*2))
+	plt.plot(array)
+	# plt.xlim(0, 200) 
+	plt.show()
+
+
+
+
 def main():
 	'''
 	Iterate over time (how long?)
@@ -68,6 +99,8 @@ def main():
 	# Testing Distributions
 	# testing_Poisson()
 	# testing_Landau()
+	# testing_Response()
+	# testing_Response2()
 
 	# Initialisations
 	time_to_strip_hit = 0			# Initialise to t=0
@@ -96,8 +129,8 @@ def main():
 		if DEBUG:
 			print"Time taken for next particle to hit strip {} ".format(time_to_strip_hit)
 		######################################
-		
-		
+	
+	
 		# Calculate amount of charge bled ####
 		reduced_charge_in_APV, charge_bled_off = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
 
@@ -106,7 +139,7 @@ def main():
 			print"Charge bled off {} ".format(charge_bled_off)
 			print"Charge after bleedoff {} ".format(reduced_charge_in_APV)
 		######################################
-		
+	
 
 		# Calculate charge deposited      ####
 		charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT)
@@ -117,19 +150,29 @@ def main():
 			print"Current charge in APV {} ".format(charge_in_APV)
 		######################################
 
-
-		# Calculate charge deposited      ####
-		charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT)
-		charge_in_APV = reduced_charge_in_APV + charge_deposited_in_APV
-
-		if DEBUG:
-			print"New charge deposited in APV {} ".format(charge_deposited_in_APV)
-			print"Current charge in APV {} ".format(charge_in_APV)
-		######################################
 
 
 
 		# Charge to Voltage Signal        ####
+
+'''
+x0 = max linear range (139)
+x = signal (4*sig/25000??)
+
+mV vs fC signal
+
+V = 5.02*x-0.00333*x^2 x<139
+V = 717 - 83.5*exp(-(x-139)/75.5) x>139
+
+
+
+'''
+
+
+
+
+
+
 		######################################
 
 
@@ -145,17 +188,21 @@ def main():
 		print sim
 	print sim
 
+	fu.make_folder_if_not_exists('plots/')
+
+
 	fig1 = plt.figure()
 	ax1 = fig1.add_subplot(1, 1, 1)
 	plt.hist(
 		sim['timeAve'], 
-		bins=range(min(sim['timeAve']), max(sim['timeAve']) + 1, 1), # For Ints
+		bins=range(min(sim['timeAve']), max(sim['timeAve']) + 1, 1), # For Ints set binsize to 1
 		# bins=np.arange(min(data), max(data) + binwidth, binwidth), # For Floats
 		facecolor='green', 
 		alpha=0.75
 	)
 	ax1.set_xlabel('Time between incoming particles')
 	ax1.set_ylabel('N')
+	fig1.savefig('plots/t.pdf', bbox_inches='tight')
 
 	fig2 = plt.figure()
 	ax2 = fig2.add_subplot(1, 1, 1)
@@ -168,6 +215,7 @@ def main():
 	)
 	ax2.set_xlabel('Charge on incoming particle (fC) ')
 	ax2.set_ylabel('N')
+	fig2.savefig('plots/e.pdf', bbox_inches='tight')
 
 
 	# sim.plot(kind='line', x='time', y='charge')
