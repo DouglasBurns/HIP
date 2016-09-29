@@ -36,20 +36,20 @@ def return_rnd_Landau(mu, sigma):
    	rnd_ld = landau( mu, sigma )
 	return rnd_ld
 
-def bleed_off_charge(q0, t, tau):
+def bleed_off(v0, t, tau):
 	'''
-	q = charge after bleed off
-	q0 = charge in APV
-	t = time since last collision
+	v = voltage after bleed off
+	v0 = voltage in APV
+	t = time since last MIP
 	tau = bleedoff lifetime
 
 			   -t/tau
-	q = q0 . e
+	v = v0 . e
 
 	V ~ Q ~ I
 	'''
-	q = q0 * math.exp(-t/tau)
-	return q, q0-q
+	v = v0 * math.exp(-t/tau)
+	return v, v0-v
 
 def charge_transformation(charge_deposited, to_fC=False, to_e=False):
 	'''
@@ -66,12 +66,27 @@ def charge_transformation(charge_deposited, to_fC=False, to_e=False):
 	elif to_e: return charge_deposited/e_charge_in_fC
 	else return 0
 
+def time_transformation(time, to_clock_cycle=False, to_us=False):
+	'''
+	1bx = 25 ns = 0.025us
+	Transform a given time
+		bx 	->	us
+		us 	->	bx
+	'''
+	time_between_bx = 0.025 # 25ns
+	# set default
+	if not to_clock_cycle and not to_us: to_us = True
+
+	if to_us: return time*time_between_bx
+	elif to_clock_cycle: return time/time_between_bx
+	else return 0
+
 def amplifier_response(new_q, baseline_v):
 	'''
 	Return the response of the amplifier
 	Response is ~ linear until 139fC
-	Baseline voltage ~ 633mV for q=139 fC
-	Max voltage readout ~ 717mV for q=139 fC
+	Max linear voltage ~ 633mV at q=139 fC
+	Max voltage readout ~ 717mV for q>139 fC
 
 	V[mV] = 5.02*q - 0.00333*pow(q,2)    		q<139 fC
 	V[mV] = 717 - 83.5*math.exp(-(q-139)/75.5) 	q>139 fC

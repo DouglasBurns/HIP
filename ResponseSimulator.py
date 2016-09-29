@@ -113,6 +113,9 @@ def main():
 	d_sim_variables['timeAve'] = []
 	d_sim_variables['charge'] = []
 	d_sim_variables['chargeDepos'] = []
+	d_sim_variables['nMIPs'] = []
+	d_sim_variables['bunchCrossing'] = []
+	# d_sim_variables['time'] = []
 
 	bunch_crossing = 0 				# First bunch crossing (0) happens at t=0 
 
@@ -121,36 +124,55 @@ def main():
 	n_bx = g.N_MAX_BUNCH_CROSSINGS
 	n_particle_in_bx = 0
 	n_particle_in_bx_ave = g.AVE_NUMBER_OF_PARTICLES_IN_BX
+	v_baseline_mV = 0
+	
+	time_since_last_MIP = 0
 
 	n_MIP=0
 	for i in range(0, n_bx):
 
+		time_since_last_MIP += 1
 		# time_between_bx += 24.97 #ns
-		if mt.is_beam_present(i):
-
-			# Calculate number of MIPS in bx  ####
-			n_particle_in_bx = mt.return_rnd_Poisson(n_particle_in_bx_ave)
-			n_MIP = mt.tracker_hits(g.OCCUPANCY, n_particle_in_bx, n_particle_in_bx_ave)
-			######################################
+		if not mt.is_beam_present(i): continue
 
 
-			# Calculate charge deposited (e)  ####
-			charge_deposited = 0
-			for i in range(0, n_MIP):
-				if DEBUG:
-					print "-"*50
-					print "{} charged particles found in bunch crossing {}".format( n_MIP, n_bx+1)
-					print "- "*25
+		# Calculate number of MIPS in bx  ####
+		n_particle_in_bx = mt.return_rnd_Poisson(n_particle_in_bx_ave)
+		n_MIP = mt.tracker_hits(g.OCCUPANCY, n_particle_in_bx, n_particle_in_bx_ave)
+		if n_MIP == 0: continue
+		######################################
 
-				# this depends on the thickness of the chip...
-				charge_deposited += mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED)
-			######################################
 
-			
-			# Calculate charge deposited (fC) ####
-			charge_deposited = mt.charge_transformation(charge_deposited, to_fC=True)
-			######################################
+		# Calculate mV bleedage    	 	  ####
+		time_since_last_MIP_us = mt.time_transformation(time_since_last_MIP, to_us=True)
+		sig_voltage, bled_voltage = mt.bleed_off(v_baseline_mV, time_since_last_MIP_us, g.BLEEDOFF_LIFETIME)
+		if DEBUG:
+			print"Baseline voltage in APV {}mV".format(v_baseline_mV)
+			print"Voltage bled off {}mV".format(bled_voltage)
+			print"Signal voltage {}mV".format(sig_voltage)
+		######################################
 
+
+		# Calculate charge deposited (e)  ####
+		charge_deposited = 0
+		for i in range(0, n_MIP):
+			if DEBUG:
+				print "-"*50
+				print "{} charged particles found in bunch crossing {}".format( n_MIP, n_bx+1)
+				print "- "*25
+
+			# this depends on the thickness of the chip...
+			charge_deposited += mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED)
+		if DEBUG:
+			print charge_deposited
+		######################################
+
+		
+		# Calculate charge deposited (fC) ####
+		charge_deposited = mt.charge_transformation(charge_deposited, to_fC=True)
+		if DEBUG:
+			print charge_deposited
+		######################################
 
 	# 	# The next successive strip hit is Poisson. (What is the mean of the poisson though? something to do with average time for interaction?)
 	# 	# In ms/ps/ns?
