@@ -73,7 +73,6 @@ def testing_Response():
 	# plt.xlim(0, 200) 
 	plt.show()
 
-
 def testing_Response2():
 	'''
 	Quick test of the response
@@ -87,9 +86,6 @@ def testing_Response2():
 	# plt.xlim(0, 200) 
 	plt.show()
 
-
-
-
 def main():
 	'''
 	Iterate over time (how long?)
@@ -97,44 +93,33 @@ def main():
 	See what charge is
 	See how much charge has bled off in the readout capacitor
 	'''
+	# Initialisations
+	d_sim_variables = {}
+	d_sim_variables['bunchCrossing'] = []
+	d_sim_variables['nParticleInBX'] = []
+	d_sim_variables['baselineVoltage'] = []
+	d_sim_variables['bledVoltage'] = []
+	d_sim_variables['chargeDeposited'] = []
+	d_sim_variables['signalVoltage'] = []
+	d_sim_variables['lastMIP_bx'] = []
+	d_sim_variables['nMIPS'] = []
+
 	# Testing Distributions
 	# testing_Poisson()
 	# testing_Landau()
 	# testing_Response()
 	# testing_Response2()
 
-	# Initialisations
-	time_to_strip_hit = 0			# Initialise to t=0
-	time_of_simulation = 0			# Initialise to t=0
-	charge_in_APV = 0				# Initialise to no charge in APV
-	reduced_charge_in_APV = 0		# Initialise to no left over charge in APV
-	d_sim_variables = {}			# At t=0, there is no charge
-	d_sim_variables['time'] = []
-	d_sim_variables['timeAve'] = []
-	d_sim_variables['charge'] = []
-	d_sim_variables['chargeDepos'] = []
-	d_sim_variables['nMIPs'] = []
-	d_sim_variables['bunchCrossing'] = []
-	# d_sim_variables['time'] = []
-
-	bunch_crossing = 0 				# First bunch crossing (0) happens at t=0 
-
-	n_particles_in_bunch = 10
-	occupancy = 0.02
 	n_bx = g.N_MAX_BUNCH_CROSSINGS
-	n_particle_in_bx = 0
 	n_particle_in_bx_ave = g.AVE_NUMBER_OF_PARTICLES_IN_BX
-	v_baseline_mV = 0
-	
+	old_baseline_mV = 0
 	time_since_last_MIP = 0
+	charge_deposited = 0
 
-	n_MIP=0
-	for i in range(0, n_bx):
+	for bx in range(0, n_bx):
 
 		time_since_last_MIP += 1
-		# time_between_bx += 24.97 #ns
-		if not mt.is_beam_present(i): continue
-
+		if not mt.is_beam_present(bx): continue
 
 		# Calculate number of MIPS in bx  ####
 		n_particle_in_bx = mt.return_rnd_Poisson(n_particle_in_bx_ave)
@@ -143,141 +128,103 @@ def main():
 		######################################
 
 
-		# Calculate mV bleedage    	 	  ####
-		time_since_last_MIP_us = mt.time_transformation(time_since_last_MIP, to_us=True)
-		sig_voltage, bled_voltage = mt.bleed_off(v_baseline_mV, time_since_last_MIP_us, g.BLEEDOFF_LIFETIME)
-		if DEBUG:
-			print"Baseline voltage in APV {}mV".format(v_baseline_mV)
-			print"Voltage bled off {}mV".format(bled_voltage)
-			print"Signal voltage {}mV".format(sig_voltage)
-		######################################
-
-
 		# Calculate charge deposited (e)  ####
-		charge_deposited = 0
 		for i in range(0, n_MIP):
 			if DEBUG:
 				print "-"*50
-				print "{} charged particles found in bunch crossing {}".format( n_MIP, n_bx+1)
+				print "{} charged particles found in bunch crossing {}".format( n_MIP, bx+1)
 				print "- "*25
 
 			# this depends on the thickness of the chip...
 			charge_deposited += mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED)
 		if DEBUG:
-			print charge_deposited
+			print "Charge deposited {}e".format(charge_deposited)
 		######################################
 
-		
 		# Calculate charge deposited (fC) ####
 		charge_deposited = mt.charge_transformation(charge_deposited, to_fC=True)
 		if DEBUG:
-			print charge_deposited
+			print "Charge deposited {}fC".format(charge_deposited)
 		######################################
 
-	# 	# The next successive strip hit is Poisson. (What is the mean of the poisson though? something to do with average time for interaction?)
-	# 	# In ms/ps/ns?
-
-	# 	# Calculate time to next hit      ####
-	# 	time_to_strip_hit = mt.return_rnd_Poisson(g.AVE_TIME_FOR_STRIP_HIT)
-	# 	time_of_simulation += time_to_strip_hit
-
-	# 	if DEBUG:
-	# 		print"Time taken for next particle to hit strip {} ".format(time_to_strip_hit)
-	# 	######################################
-	
-	
-	# 	# Calculate amount of charge bled ####
-	# 	reduced_charge_in_APV, charge_bled_off = mt.bleed_off_charge(charge_in_APV, time_to_strip_hit, g.BLEEDOFF_LIFETIME)
-
-	# 	if DEBUG:
-	# 		print"Old charge in APV {} ".format(charge_in_APV)
-	# 		print"Charge bled off {} ".format(charge_bled_off)
-	# 		print"Charge after bleedoff {} ".format(reduced_charge_in_APV)
-	# 	######################################
+		# Calculate bleedage (mV)  	 	  ####
+		time_since_last_MIP_us = mt.time_transformation(time_since_last_MIP, to_us=True)
+		current_baseline_mV, bled_voltage = mt.bleed_off(old_baseline_mV, time_since_last_MIP_us, g.BLEEDOFF_LIFETIME)
+		if DEBUG:
+			print"Signal voltage at last MIP {}mV".format(old_baseline_mV)
+			print"Baseline voltage bled off {}mV".format(bled_voltage)
+			print"Current baseline voltage {}mV".format(current_baseline_mV)
+		######################################
 	
 
-	# 	# Calculate charge deposited      ####
-	# 	charge_deposited_in_APV = mt.return_rnd_Landau(g.AVE_ENERGY_FOR_STRIP_HIT, g.SIGMA_ENERGY_FOR_STRIP_HIT)
-	# 	charge_in_APV = reduced_charge_in_APV + charge_deposited_in_APV
-
-	# 	if DEBUG:
-	# 		print"New charge deposited in APV {} ".format(charge_deposited_in_APV)
-	# 		print"Current charge in APV {} ".format(charge_in_APV)
-# 	# 	######################################
-
+		
+		# Voltage response (mV)		 	  ####
+		# charge deposited in fC, baseline voltage in mV
+		signal_response = mt.amplifier_response(charge_deposited, current_baseline_mV)
+		if DEBUG:
+			print "Signal response {}mV".format(signal_response)
+		######################################
 
 
 
-# 		# Charge to Voltage Signal        ####
+		# Add variables to dictionary 	  ####
+		d_sim_variables['bunchCrossing'].append(bx+1)
+		d_sim_variables['baselineVoltage'].append(current_baseline_mV)
+		d_sim_variables['bledVoltage'].append(bled_voltage)
+		d_sim_variables['chargeDeposited'].append(charge_deposited)
+		d_sim_variables['signalVoltage'].append(signal_response)
+		d_sim_variables['lastMIP_bx'].append(time_since_last_MIP)
+		d_sim_variables['nMIPS'].append(n_MIP)
+		d_sim_variables['nParticleInBX'].append(n_particle_in_bx)
 
-# '''
-# x0 = max linear range (139)
-# x = signal (4*sig/25000??)
+		######################################
 
-# mV vs fC signal
-
-# V = 5.02*x-0.00333*x^2 x<139
-# V = 717 - 83.5*exp(-(x-139)/75.5) x>139
-
-
-
-# '''
-
-
-
-
-
-
-# 		######################################
+		# Reset some variables 	  		  ####
+		old_baseline_mV = signal_response
+		charge_deposited = 0
+		time_since_last_MIP = 0
+ 		######################################
 
 
-# 		# Add charge in APV at this time  ####
-# 		d_sim_variables['charge'].append(charge_in_APV)
-# 		d_sim_variables['chargeDepos'].append(charge_deposited_in_APV)
-# 		d_sim_variables['timeAve'].append(time_to_strip_hit)
-# 		d_sim_variables['time'].append(time_of_simulation)
-# 		######################################
+	sim = pu.dict_to_df(d_sim_variables)
+	if DEBUG:
+		print sim
 
-# 	sim = pu.dict_to_df(d_sim_variables)
-# 	if DEBUG:
-# 		print sim
-# 	print sim
-
-# 	fu.make_folder_if_not_exists('plots/')
+	fu.make_folder_if_not_exists('plots/')
 
 
-# 	fig1 = plt.figure()
-# 	ax1 = fig1.add_subplot(1, 1, 1)
-# 	plt.hist(
-# 		sim['timeAve'], 
-# 		bins=range(min(sim['timeAve']), max(sim['timeAve']) + 1, 1), # For Ints set binsize to 1
-# 		# bins=np.arange(min(data), max(data) + binwidth, binwidth), # For Floats
-# 		facecolor='green', 
-# 		alpha=0.75
-# 	)
-# 	ax1.set_xlabel('Time between incoming particles')
-# 	ax1.set_ylabel('N')
-# 	fig1.savefig('plots/t.pdf', bbox_inches='tight')
+	fig1 = plt.figure()
+	ax1 = fig1.add_subplot(1, 1, 1)
+	plt.hist(
+		sim['nParticleInBX'], 
+		bins=range(min(sim['nParticleInBX']), max(sim['nParticleInBX']) + 1, 1), # For Ints set binsize to 1
+		# bins=np.arange(min(data), max(data) + binwidth, binwidth), # For Floats
+		facecolor='green', 
+		alpha=0.75
+	)
+	ax1.set_xlabel('Number of charged particles in bx')
+	ax1.set_ylabel('N')
+	fig1.savefig('plots/bChargePtcl.pdf', bbox_inches='tight')
 
-# 	fig2 = plt.figure()
-# 	ax2 = fig2.add_subplot(1, 1, 1)
-# 	ax2.set_xlim([0,0.5*pow(10,6)])
-# 	plt.hist(
-# 		sim['chargeDepos'], 
-# 		10000, 
-# 		facecolor='green', 
-# 		alpha=0.75
-# 	)
-# 	ax2.set_xlabel('Charge on incoming particle (fC) ')
-# 	ax2.set_ylabel('N')
-# 	fig2.savefig('plots/e.pdf', bbox_inches='tight')
+	fig2 = plt.figure()
+	ax2 = fig2.add_subplot(1, 1, 1)
+	# ax2.set_xlim([0,0.5*pow(10,6)])
+	plt.hist(
+		sim['chargeDeposited'], 
+		10000, 
+		facecolor='green', 
+		alpha=0.75
+	)
+	ax2.set_xlabel('Charge deposited on chip in bx(fC) ')
+	ax2.set_ylabel('N')
+	fig2.savefig('plots/e.pdf', bbox_inches='tight')
 
 
 # 	# sim.plot(kind='line', x='time', y='charge')
 # 	# sim.plot(kind='line', x='time', y='charge', ylim=(0,500))
 # 	# sim.plot(kind='line', x='time', y='charge', xlim=(0,2000), ylim=(0,500))
 
-# 	plt.show()
+	plt.show()
 # 		# Total charge in capacitor		  ####
 
 # 		######################################

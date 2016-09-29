@@ -64,7 +64,7 @@ def charge_transformation(charge_deposited, to_fC=False, to_e=False):
 
 	if to_fC: return charge_deposited*e_charge_in_fC
 	elif to_e: return charge_deposited/e_charge_in_fC
-	else return 0
+	else: return 0
 
 def time_transformation(time, to_clock_cycle=False, to_us=False):
 	'''
@@ -79,7 +79,7 @@ def time_transformation(time, to_clock_cycle=False, to_us=False):
 
 	if to_us: return time*time_between_bx
 	elif to_clock_cycle: return time/time_between_bx
-	else return 0
+	else: return 0
 
 def amplifier_response(new_q, baseline_v):
 	'''
