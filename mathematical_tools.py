@@ -93,4 +93,121 @@ def amplifier_response(new_q, baseline_v):
 			gain_v = 0
 	return gain_v
 
+def is_beam_present(clock_cycle):
+	'''
+	Takes the current clock cycle relative to the first bunch
+
+	#LHC beam structure
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] + 
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +(72b + 8e) +31 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] + 
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +(72b + 8e) +31 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] + 
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +(72b + 8e) +31 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] + 
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] +
+	[(72b + 8e) +(72b +8e) +(72b+8e) +30 e] + 81e
+	Total = 3564 bunches and empties
+	'''
+	is_beam = True
+	# Cycle using the modulus, +1 as LHC bunch scheming starts at one, our loop starts at 0
+	# modulo 17 % 3 = 2 (goes in 5 times (17 - 15) = 2 left)
+	mod_clock_cycle = (clock_cycle % 3564) + 1
+
+	# Check if current clock cycle has a colliding bunch
+	if( (mod_clock_cycle > 72) and (mod_clock_cycle <= 80) ) : is_beam =  False
+	if( (mod_clock_cycle > 152) and (mod_clock_cycle <= 160) ) : is_beam = False
+	if( (mod_clock_cycle > 232) and (mod_clock_cycle <= 270) ) : is_beam = False
+	if( (mod_clock_cycle > 342) and (mod_clock_cycle <= 350) ) : is_beam = False
+	if( (mod_clock_cycle > 422) and (mod_clock_cycle <= 430) ) : is_beam = False
+	if( (mod_clock_cycle > 502) and (mod_clock_cycle <= 540) ) : is_beam = False
+	if( (mod_clock_cycle > 612) and (mod_clock_cycle <= 620) ) : is_beam = False
+	if( (mod_clock_cycle > 692) and (mod_clock_cycle <= 700) ) : is_beam = False
+	if( (mod_clock_cycle > 772) and (mod_clock_cycle <= 780) ) : is_beam = False
+	if( (mod_clock_cycle > 852) and (mod_clock_cycle <= 891) ) : is_beam = False
+	if( (mod_clock_cycle > 963) and (mod_clock_cycle <= 971) ) : is_beam = False
+	if( (mod_clock_cycle > 1043) and (mod_clock_cycle <= 1051) ) : is_beam = False
+	if( (mod_clock_cycle > 1123) and (mod_clock_cycle <= 1161) ) : is_beam = False
+	if( (mod_clock_cycle > 1233) and (mod_clock_cycle <= 1241) ) : is_beam = False
+	if( (mod_clock_cycle > 1313) and (mod_clock_cycle <= 1321) ) : is_beam = False
+	if( (mod_clock_cycle > 1393) and (mod_clock_cycle <= 1431) ) : is_beam = False
+	if( (mod_clock_cycle > 1503) and (mod_clock_cycle <= 1511) ) : is_beam = False
+	if( (mod_clock_cycle > 1583) and (mod_clock_cycle <= 1591) ) : is_beam = False
+	if( (mod_clock_cycle > 1663) and (mod_clock_cycle <= 1671) ) : is_beam = False
+	if( (mod_clock_cycle > 1742) and (mod_clock_cycle <= 1782) ) : is_beam = False
+	if( (mod_clock_cycle > 1854) and (mod_clock_cycle <= 1862) ) : is_beam = False
+	if( (mod_clock_cycle > 1934) and (mod_clock_cycle <= 1942) ) : is_beam = False
+	if( (mod_clock_cycle > 2014) and (mod_clock_cycle <= 2052) ) : is_beam = False
+	if( (mod_clock_cycle > 2124) and (mod_clock_cycle <= 2132) ) : is_beam = False
+	if( (mod_clock_cycle > 2204) and (mod_clock_cycle <= 2212) ) : is_beam = False
+	if( (mod_clock_cycle > 2284) and (mod_clock_cycle <= 2322) ) : is_beam = False
+	if( (mod_clock_cycle > 2394) and (mod_clock_cycle <= 2402) ) : is_beam = False
+	if( (mod_clock_cycle > 2474) and (mod_clock_cycle <= 2482) ) : is_beam = False
+	if( (mod_clock_cycle > 2554) and (mod_clock_cycle <= 2562) ) : is_beam = False
+	if( (mod_clock_cycle > 2634) and (mod_clock_cycle <= 2673) ) : is_beam = False
+	if( (mod_clock_cycle > 2745) and (mod_clock_cycle <= 2753) ) : is_beam = False
+	if( (mod_clock_cycle > 2825) and (mod_clock_cycle <= 2833) ) : is_beam = False
+	if( (mod_clock_cycle > 2905) and (mod_clock_cycle <= 2943) ) : is_beam = False
+	if( (mod_clock_cycle > 3015) and (mod_clock_cycle <= 3023) ) : is_beam = False
+	if( (mod_clock_cycle > 3095) and (mod_clock_cycle <= 3103) ) : is_beam = False
+	if( (mod_clock_cycle > 3175) and (mod_clock_cycle <= 3213) ) : is_beam = False
+	if( (mod_clock_cycle > 3285) and (mod_clock_cycle <= 3293) ) : is_beam = False
+	if( (mod_clock_cycle > 3365) and (mod_clock_cycle <= 3373) ) : is_beam = False
+	if( (mod_clock_cycle > 3445) and (mod_clock_cycle <= 3564) ) : is_beam = False
+
+	return is_beam
+
+def tracker_hits(occupancy, particles_in_bx, ave_particles_in_bx ):
+	'''
+	Return number of hits on a strip in the tracker
+
+								 N_p
+	P(Strip hit) = Occupancy * --------
+								<N_p>
+
+	N_p   	  	 = Number of particles produced in bunch crossing
+	<N_p> 		 = Average number of particles produced in bunch crossing
+
+				  		 N_p
+				 = SUM -------
+				 		 N_bx
+
+	N_bx 		 = Number of bunch crossings
+
+	Occupancy 	 = P(strip has charge deposited per bunch crossing)
+				   f(N_bx, d_pv)
+	d_pv 		 = Distance to the primary vertex
+
+	N_particles produced in bx ~ N_particles in bunch 1 and 2 
+
+	'''
+	# Not hit very often...
+	p_strip_hit = occupancy * particles_in_bx / ave_particles_in_bx
+
+	n_tracker_hits = return_rnd_Poisson( p_strip_hit )
+	return n_tracker_hits
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
