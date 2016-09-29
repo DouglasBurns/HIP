@@ -128,14 +128,29 @@ def main():
 		# time_between_bx += 24.97 #ns
 		if mt.is_beam_present(i):
 
+			# Calculate number of MIPS in bx  ####
 			n_particle_in_bx = mt.return_rnd_Poisson(n_particle_in_bx_ave)
 			n_MIP = mt.tracker_hits(g.OCCUPANCY, n_particle_in_bx, n_particle_in_bx_ave)
+			######################################
 
-	# for i in range(0, g.N_MIPS):
-	# 	if DEBUG:
-	# 		print "-"*50
-	# 		print "Charge Particle {} ".format(i+1)
-	# 		print "- "*25
+
+			# Calculate charge deposited (e)  ####
+			charge_deposited = 0
+			for i in range(0, n_MIP):
+				if DEBUG:
+					print "-"*50
+					print "{} charged particles found in bunch crossing {}".format( n_MIP, n_bx+1)
+					print "- "*25
+
+				# this depends on the thickness of the chip...
+				charge_deposited += mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED)
+			######################################
+
+			
+			# Calculate charge deposited (fC) ####
+			charge_deposited = mt.charge_transformation(charge_deposited, to_fC=True)
+			######################################
+
 
 	# 	# The next successive strip hit is Poisson. (What is the mean of the poisson though? something to do with average time for interaction?)
 	# 	# In ms/ps/ns?

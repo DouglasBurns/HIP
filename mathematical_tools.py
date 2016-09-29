@@ -51,7 +51,20 @@ def bleed_off_charge(q0, t, tau):
 	q = q0 * math.exp(-t/tau)
 	return q, q0-q
 
+def charge_transformation(charge_deposited, to_fC=False, to_e=False):
+	'''
+	e = 1.602e-4 fC
+	Transform a given charge
+		e 	->	fC
+		fC 	->	e
+	'''
+	# set default
+	e_charge_in_fC = 1.602e-4
+	if not to_fC and not to_e: to_fC = True
 
+	if to_fC: return charge_deposited*e_charge_in_fC
+	elif to_e: return charge_deposited/e_charge_in_fC
+	else return 0
 
 def amplifier_response(new_q, baseline_v):
 	'''
@@ -189,6 +202,7 @@ def tracker_hits(occupancy, particles_in_bx, ave_particles_in_bx ):
 
 	n_tracker_hits = return_rnd_Poisson( p_strip_hit )
 	return n_tracker_hits
+
 
 
 
