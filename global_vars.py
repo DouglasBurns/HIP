@@ -16,7 +16,7 @@ N_MIPS=10000
 N_MAX_BUNCH_CROSSINGS=100000
 
 # Order 100 charged particles
-AVE_NUMBER_OF_PARTICLES_IN_BX=100 
+AVE_NUMBER_OF_PARTICLES_IN_BX=2000
 
 # 
 OCCUPANCY=0.02
@@ -32,4 +32,4 @@ SIGMA_CHARGE_DEPOSITED=3000
 
 # May need to change to bleed off current for capacitor
 # Then compute lifetime for bleedoff, tau
-BLEEDOFF_LIFETIME=50 #(us)
+BLEEDOFF_LIFETIME=10 #(us)
