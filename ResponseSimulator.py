@@ -33,6 +33,7 @@ import pandas_utils as pu
 import file_utils as fu
 
 from argparse import ArgumentParser
+
 def testing_Poisson():
 	'''
 	Quick test of the poisson random number generation
@@ -69,22 +70,32 @@ def testing_Response():
 	for i in range (0,500): 
 		# if i == 139: continue
 		array.append(mt.amplifier_response(i, 0))
+	fig_resp = plt.figure()
+	ax_resp = fig_resp.add_subplot(1, 1, 1)
 	plt.plot(array)
-	# plt.xlim(0, 200) 
-	plt.show()
+	ax_resp.set_xlabel('Input signal [fC]')
+	ax_resp.set_ylabel('$V_{out}$')
+	fig_resp.savefig('plots/PreAmpResponse.pdf', bbox_inches='tight')
+	return
 
-def testing_Response2():
+def testing_Gain():
 	'''
 	Quick test of the response
 	Baseline V 	:	0 -> 1000mV
-	MIP 		:	3.75 fC
+	1MIP 		:	3.75 fC
 	'''
 	array = []
-	for i in range (0,500): 
-		array.append(mt.amplifier_response(3.75, i*2))
+	for i in range (0,1000): 
+		array.append(mt.amplifier_response(3.75, i))
+	fig_gain = plt.figure()
+	ax_gain = fig_gain.add_subplot(1, 1, 1)
 	plt.plot(array)
-	# plt.xlim(0, 200) 
-	plt.show()
+	ax_gain.set_xlabel('Baseline Voltage [mV]')
+	ax_gain.set_ylabel('$V_{out}$ [1MIP]')
+	fig_gain.savefig('plots/PreAmpGain.pdf', bbox_inches='tight')
+	return
+
+
 
 def main():
 	'''
@@ -96,158 +107,212 @@ def main():
 	# Initialisations
 	d_sim_variables = {}
 	d_sim_variables['bunchCrossing'] = []
+	d_sim_variables['isBeam'] = []
 	d_sim_variables['nParticleInBX'] = []
-	d_sim_variables['baselineVoltage'] = []
-	d_sim_variables['bledVoltage'] = []
-	d_sim_variables['chargeDeposited'] = []
-	d_sim_variables['signalVoltage'] = []
-	d_sim_variables['lastMIP_bx'] = []
+	d_sim_variables['V_baseline_mv'] = []
+	# d_sim_variables['bledVoltage'] = []
+	d_sim_variables['chargeDeposited_e'] = []
+	d_sim_variables['chargeDeposited_fC'] = []
+	d_sim_variables['chargeCurrent_fC'] = []
+	d_sim_variables['V_signal_mv'] = []
+	d_sim_variables['timeLastMIP_bx'] = []
+	d_sim_variables['timeLastMIP_us'] = []
 	d_sim_variables['nMIPS'] = []
+	d_sim_variables['V_gain_mv'] = []
 
 	# Testing Distributions
 	# testing_Poisson()
 	# testing_Landau()
 	# testing_Response()
-	# testing_Response2()
+	# testing_Gain()
 
 	n_bx = g.N_MAX_BUNCH_CROSSINGS
 	n_particle_in_bx_ave = g.AVE_NUMBER_OF_PARTICLES_IN_BX
 	old_baseline_mV = 0
 	time_since_last_MIP = 0
-	charge_deposited = 0
+	bx = 0
+	time_since_last_bx = 1
+	n_MIPS = 0
 
-	for bx in range(0, n_bx):
+	while (n_MIPS < g.N_MIPS):
+		bx += 1
 
+		# if beam is present
+		n_particle_in_bx = 0
+		n_MIP = 0
+		V_gain_mv = 0
+		charge_deposited_e = 0
+		charge_deposited_fC = 0
 		time_since_last_MIP += 1
-		if not mt.is_beam_present(bx): continue
 
-		# Calculate number of MIPS in bx  ####
-		n_particle_in_bx = mt.return_rnd_Poisson(n_particle_in_bx_ave)
-		n_MIP = mt.tracker_hits(g.OCCUPANCY, n_particle_in_bx, n_particle_in_bx_ave)
-		if n_MIP == 0: continue
-		######################################
+		if mt.is_beam_present(bx):
 
+			# Calculate number of MIPS in bx  ####
+			n_particle_in_bx = mt.return_rnd_Poisson(n_particle_in_bx_ave)
+			n_MIP = mt.tracker_hits(g.OCCUPANCY, n_particle_in_bx, n_particle_in_bx_ave)
+			n_MIPS += n_MIP
+			######################################
+			
+		# there are MIPs present
+		if n_MIP > 0:
+			# Calculate charge deposited (e)  ####
+			for i in range(0, n_MIP):
+				if DEBUG:
+					print "-"*50
+					print "{} charged particles found in bunch crossing {}".format( n_MIP, bx )
+					print "- "*25
 
-		# Calculate charge deposited (e)  ####
-		for i in range(0, n_MIP):
+				# this depends on the thickness of the chip...
+				charge_deposited_e += mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED)
 			if DEBUG:
-				print "-"*50
-				print "{} charged particles found in bunch crossing {}".format( n_MIP, bx+1)
-				print "- "*25
+				print "Charge deposited {}e".format(charge_deposited_e)
+			######################################
 
-			# this depends on the thickness of the chip...
-			charge_deposited += mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED)
-		if DEBUG:
-			print "Charge deposited {}e".format(charge_deposited)
-		######################################
 
 		# Calculate charge deposited (fC) ####
-		charge_deposited = mt.charge_transformation(charge_deposited, to_fC=True)
+		charge_deposited_fC = mt.charge_transformation(charge_deposited_e, to_fC=True)
 		if DEBUG:
-			print "Charge deposited {}fC".format(charge_deposited)
+			print "Charge deposited {}fC".format(charge_deposited_fC)
 		######################################
+
 
 		# Calculate bleedage (mV)  	 	  ####
 		time_since_last_MIP_us = mt.time_transformation(time_since_last_MIP, to_us=True)
-		current_baseline_mV, bled_voltage = mt.bleed_off(old_baseline_mV, time_since_last_MIP_us, g.BLEEDOFF_LIFETIME)
+		time_since_last_bx_us = mt.time_transformation(time_since_last_bx, to_us=True)
+		current_baseline_mV, bled_voltage = mt.bleed_off(old_baseline_mV, time_since_last_bx_us, g.BLEEDOFF_LIFETIME)
 		if DEBUG:
 			print"Signal voltage at last MIP {}mV".format(old_baseline_mV)
 			print"Baseline voltage bled off {}mV".format(bled_voltage)
 			print"Current baseline voltage {}mV".format(current_baseline_mV)
 		######################################
-	
-
 		
+
+			
 		# Voltage response (mV)		 	  ####
 		# charge deposited in fC, baseline voltage in mV
-		signal_response = mt.amplifier_response(charge_deposited, current_baseline_mV)
+		signal_gain, signal_response, total_charge_fC = mt.amplifier_response(charge_deposited_fC, current_baseline_mV)
 		if DEBUG:
 			print "Signal response {}mV".format(signal_response)
+			print "Signal gain {}mV".format(signal_gain)
+			print "- "*30
 		######################################
 
 
 
 		# Add variables to dictionary 	  ####
-		d_sim_variables['bunchCrossing'].append(bx+1)
-		d_sim_variables['baselineVoltage'].append(current_baseline_mV)
-		d_sim_variables['bledVoltage'].append(bled_voltage)
-		d_sim_variables['chargeDeposited'].append(charge_deposited)
-		d_sim_variables['signalVoltage'].append(signal_response)
-		d_sim_variables['lastMIP_bx'].append(time_since_last_MIP)
-		d_sim_variables['nMIPS'].append(n_MIP)
+		d_sim_variables['bunchCrossing'].append(bx)
+		d_sim_variables['isBeam'].append(mt.is_beam_present(bx))
 		d_sim_variables['nParticleInBX'].append(n_particle_in_bx)
+		d_sim_variables['nMIPS'].append(n_MIP)
+		d_sim_variables['timeLastMIP_bx'].append(time_since_last_MIP)
+		d_sim_variables['timeLastMIP_us'].append(time_since_last_MIP_us)
+		d_sim_variables['chargeDeposited_e'].append(charge_deposited_e)
+		d_sim_variables['chargeDeposited_fC'].append(charge_deposited_fC)
+		d_sim_variables['chargeCurrent_fC'].append(total_charge_fC)
+		d_sim_variables['V_baseline_mv'].append(current_baseline_mV)
+		# d_sim_variables['bledVoltage'].append(bled_voltage)
+		d_sim_variables['V_signal_mv'].append(signal_response)
+		d_sim_variables['V_gain_mv'].append(signal_gain)
 
 		######################################
 
 		# Reset some variables 	  		  ####
 		old_baseline_mV = signal_response
-		charge_deposited = 0
-		time_since_last_MIP = 0
+		if n_MIP > 0: time_since_last_MIP = 0
  		######################################
 
 
 	sim = pu.dict_to_df(d_sim_variables)
-	if DEBUG:
-		print sim
+	print sim
 
 	fu.make_folder_if_not_exists('plots/')
 
+	# # PLOT NUMBER OF PARTICLES IN BX
+	# fig1 = plt.figure()
+	# ax1 = fig1.add_subplot(1, 1, 1)
+	# ax1.set_xlim([n_particle_in_bx_ave-3*mt.math.sqrt(n_particle_in_bx_ave),n_particle_in_bx_ave+3*mt.math.sqrt(n_particle_in_bx_ave)])
+	# ax1.set_ylim([0, 40000])
+	# plt.hist(
+	# 	sim['nParticleInBX'], 
+	# 	bins=range(min(sim['nParticleInBX']), max(sim['nParticleInBX']) + 1, 1), # For Ints set binsize to 1
+	# 	# bins=np.arange(min(data), max(data) + binwidth, binwidth), # For Floats
+	# 	facecolor='green', 
+	# 	alpha=0.75
+	# )
+	# ax1.set_xlabel('Number of charged particles in bx')
+	# ax1.set_ylabel('N')
+	# fig1.savefig('plots/nChargePtcl.pdf', bbox_inches='tight')
 
-	fig1 = plt.figure()
-	ax1 = fig1.add_subplot(1, 1, 1)
-	plt.hist(
-		sim['nParticleInBX'], 
-		bins=range(min(sim['nParticleInBX']), max(sim['nParticleInBX']) + 1, 1), # For Ints set binsize to 1
-		# bins=np.arange(min(data), max(data) + binwidth, binwidth), # For Floats
-		facecolor='green', 
-		alpha=0.75
+
+	# # PLOT CHARGE DEPOSITED DISTRIBUTION
+	# fig2 = plt.figure()
+	# ax2 = fig2.add_subplot(1, 1, 1)
+	# ax2.set_xlim([0,1*pow(10,5)])
+	# ax2.set_ylim([0,1*pow(10,3)])
+	# plt.hist(
+	# 	sim['chargeDeposited_e'], 
+	# 	10000, 
+	# 	facecolor='green', 
+	# 	alpha=0.75
+	# )
+	# ax2.set_xlabel('Charge deposited on chip in a bx(fC) ')
+	# ax2.set_ylabel('N')
+	# fig2.savefig('plots/chargeDeposited.pdf', bbox_inches='tight')
+
+	# PLOT VOUT ###
+	fig3 = plt.figure()
+	ax3 = fig3.add_subplot(1, 1, 1)
+	plt.plot(
+		# kind='line',
+		sim['bunchCrossing'], 
+		sim['V_signal_mv'],
 	)
-	ax1.set_xlabel('Number of charged particles in bx')
-	ax1.set_ylabel('N')
-	fig1.savefig('plots/bChargePtcl.pdf', bbox_inches='tight')
+	ax3.set_xlim([0,15000])
+	ax3.set_ylim([0,1000])
+	ax3.set_xlabel('Bunch Crossing ')
+	ax3.set_ylabel('Signal Voltage')
+	fig3.savefig('plots/VoutTau'+str(g.BLEEDOFF_LIFETIME)+'.pdf', bbox_inches='tight')
 
-	fig2 = plt.figure()
-	ax2 = fig2.add_subplot(1, 1, 1)
-	# ax2.set_xlim([0,0.5*pow(10,6)])
-	plt.hist(
-		sim['chargeDeposited'], 
-		10000, 
-		facecolor='green', 
-		alpha=0.75
+
+	# PLOT BEAM STRUCTURE ###
+	fig4 = plt.figure()
+	ax4 = fig4.add_subplot(1, 1, 1)
+	plt.plot(
+		sim['bunchCrossing'], 
+		sim['isBeam'],
+		color='green',
+		lw=0,
 	)
-	ax2.set_xlabel('Charge deposited on chip in bx(fC) ')
-	ax2.set_ylabel('N')
-	fig2.savefig('plots/e.pdf', bbox_inches='tight')
+	# Line signalling structure bound
+	for i in sim['bunchCrossing']:
+		if (i % 3564) == 0:
+			ax4.axvline(i, color='blue', lw=2, alpha=0.5)
+	ax4.set_xlim([0,10000])
+	ax4.set_ylim([0,2])
+	ax4.fill_between(sim['bunchCrossing'], 0, sim['isBeam'], facecolor='green')
+	ax4.set_xlabel('Bunch Crossing ')
+	ax4.set_ylabel('Beam Present')
+	fig4.savefig('plots/BeamStructure.pdf', bbox_inches='tight')
 
+	# # PLOT Charge v bx ###
+	# fig5 = plt.figure()
+	# ax5 = fig5.add_subplot(1, 1, 1)
+	# plt.plot(
+	# 	# kind='line',
+	# 	sim['bunchCrossing'], 
+	# 	sim['chargeCurrent_fC'],
+	# )
+	# ax5.set_xlim([0, 10000])
+	# ax5.set_ylim([0,300])
+	# ax5.set_xlabel('Bunch Crossing ')
+	# ax5.set_ylabel('Charge in Strip [fC]')
+	# fig5.savefig('plots/qTau'+str(g.BLEEDOFF_LIFETIME)+'.pdf', bbox_inches='tight')
 
 # 	# sim.plot(kind='line', x='time', y='charge')
 # 	# sim.plot(kind='line', x='time', y='charge', ylim=(0,500))
 # 	# sim.plot(kind='line', x='time', y='charge', xlim=(0,2000), ylim=(0,500))
 
 	plt.show()
-# 		# Total charge in capacitor		  ####
-
-# 		######################################
-
-# 		######################################
-
-# 		# Capacitor Readout     		  ####
-
-# 		######################################
-
-# 		######################################
-
-# 		# Testing 						  ####
-# 		# small charges
-# 		# large charges
-# 		# small timescale
-# 		# large timescale
-# 		# dampening tau (us)
-# 		######################################
-
-# 		# number of signals... not iterations.
-
-
 
 
 if __name__ == "__main__":

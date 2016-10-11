@@ -59,6 +59,7 @@ def charge_transformation(charge_deposited, to_fC=False, to_e=False):
 		fC 	->	e
 	'''
 	# set default
+	if charge_deposited == 0: return 0
 	e_charge_in_fC = 1.602e-4
 	if not to_fC and not to_e: to_fC = True
 
@@ -94,6 +95,8 @@ def amplifier_response(new_q, baseline_v):
 	Response as given by Geoff Hall and Mark Raymond
 	'''
 	max_linear_range = 139
+	new_v = 0
+	signal_q = 0
 
 	# Finding the baseline charge in chip in fC
 	# Solution to the response equation
@@ -102,7 +105,7 @@ def amplifier_response(new_q, baseline_v):
 		signal_q = baseline_q + new_q
 		# Now put back into response equation
 		# linear
-		new_v = 5.02*signal_q - 0.00333*pow(signal_q,2)
+		new_v = 5.02*signal_q - 0.00333*(pow(signal_q,2))
 		# baseline_v = 5.02*signal_q - 0.00333*pow(baseline_q,2)
 		gain_v = new_v - baseline_v
 		# nonlinear
@@ -119,7 +122,7 @@ def amplifier_response(new_q, baseline_v):
 		else:
 			# No gain for any signal with the baseline currently above the maximum
 			gain_v = 0
-	return gain_v
+	return gain_v, new_v, signal_q
 
 def is_beam_present(clock_cycle):
 	'''
@@ -143,7 +146,7 @@ def is_beam_present(clock_cycle):
 	is_beam = True
 	# Cycle using the modulus, +1 as LHC bunch scheming starts at one, our loop starts at 0
 	# modulo 17 % 3 = 2 (goes in 5 times (17 - 15) = 2 left)
-	mod_clock_cycle = (clock_cycle % 3564) + 1
+	mod_clock_cycle = (clock_cycle % 3564)
 
 	# Check if current clock cycle has a colliding bunch
 	if( (mod_clock_cycle > 72) and (mod_clock_cycle <= 80) ) : is_beam =  False
