@@ -6,7 +6,7 @@ from __future__ import division
 import math
 from ROOT import gRandom, TRandom3
 gRandom = TRandom3()
-gRandom.SetSeed(1)
+gRandom.SetSeed(0)
 # Cache for quicker running
 landau = gRandom.Landau
 poisson = gRandom.Poisson
