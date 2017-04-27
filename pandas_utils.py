@@ -3,7 +3,7 @@ import os
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 4096)
-pd.set_option('display.max_rows', 200)
+pd.set_option('display.max_rows', 100)
 pd.set_option('display.width', 1000)
 
 def dict_to_df(d):
@@ -20,7 +20,7 @@ def df_to_file(filepath, filename, df):
 	'''
 	make_folder_if_not_exists(filepath)
 	filepath = os.path.join(filepath, filename)
-	with open(f,'w') as filepath:
+	with open(filepath,'w') as f:
 		df.to_string(f, index=True)
 		f.write('\n')
 		print('DataFrame written to {}'.format(f))

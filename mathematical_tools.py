@@ -5,7 +5,11 @@ from __future__ import division
 
 import math
 from ROOT import gRandom, TRandom3
+from rootpy.plotting import Hist
+
+import numpy as np
 import global_vars as g
+import bunch_structures as bs
 gRandom = TRandom3()
 gRandom.SetSeed(0)
 # Cache for quicker running
@@ -14,6 +18,8 @@ poisson = gRandom.Poisson
 uniform = gRandom.Uniform
 gaussian = gRandom.Gaus
 
+# from memory_profiler import profile
+# fp=open('memory_profiler.log','w+')
 
 def return_rnd_Poisson(mu):
 	'''
@@ -38,15 +44,55 @@ def return_rnd_Gaussian(mu, sigma):
    	rnd_gs = gaussian( mu, sigma )
 	return rnd_gs
 
-def return_rnd_Landau(mu, sigma):
+def return_rnd_Uniform(low=None, high=None):
+	'''
+	Returning a random unform number in range 0-1
+	'''
+	rnd_uni = -99
+	if low and high:
+		rnd_uni = uniform(low, high)
+	else:
+   		rnd_uni = uniform()
+	return rnd_uni
+
+def return_rnd_Landau(mu, sigma, scale=None):
 	'''
 	Returning a random landau number
 
 	mu 		: location value (Not most probable value)
 	sigma 	: scale parameter (Not the standard deviation as this is not defined)
+	scale 	: if scale then apply silicon width to signal production. Mu and sigma
+			  are predefined in this case for a 300 um chip, therefore 
+			  charge = charge deposited * (Silicon Width / 300)
 	'''
+	# if using silicon width adjust mu by SiWidth/300
+	if scale: 
+		mu 		= mu * scale
+		sigma 	= sigma * scale
    	rnd_ld = landau( mu, sigma )
 	return rnd_ld
+
+def return_charge_weighting(clusterStripInfo):
+	'''
+	clusterStripInfo contains the stripCluster Distribution (+ Normalised)
+	Throw uniform number [0-1]
+	Integral up to random number gives charge weighting from cluster to strip
+	'''
+	x = return_rnd_Uniform()
+	interval = np.array([0.])
+	quantile = np.array([x])
+	clusterStripInfo['hist_stripClusterFraction_normed'].GetQuantiles( 1, interval, quantile) 
+	return interval[0]
+
+def eta_to_scale(eta):
+	'''
+	scale the path of the silicon chip by the entry angle
+	'''
+	# eta to theta
+	theta = 2*np.arctan(np.exp(-eta))
+	# length scales as 1/sin(theta)
+	scale = 1/np.sin(theta)
+	return scale
 
 def bleed_off(v0, t, tau):
 	'''
@@ -94,7 +140,13 @@ def time_transformation(time, to_clock_cycle=False, to_us=False):
 	elif to_clock_cycle: return time/time_between_bx
 	else: return 0
 
-def amplifier_response(new_q, baseline_v):
+def mv_to_e(mV):
+	'''
+	Transform mv to e in the linear regime (low occupancy regimes)
+	'''
+	return
+
+def amplifier_response(new_q, baseline_v, noise=True):
 	'''
 	Return the response of the amplifier
 	Response is ~ linear until 139fC
@@ -107,9 +159,15 @@ def amplifier_response(new_q, baseline_v):
 	Response as given by Geoff Hall and Mark Raymond
 	'''
 	max_linear_range 	= 139
+	max_response 		= 717
 	new_v 				= 0
 	signal_q 			= 0
 	bkg_electronic 		= 0
+	gain_v				= 0
+	gain_vq				= 0
+
+	if noise: bkg_electronic = return_rnd_Gaussian(0, g.AVERAGE_ELECTRONIC_NOISE)
+
 	# Finding the baseline charge in chip in fC
 	# Solution to the response equation
 	if baseline_v < 633:
@@ -121,38 +179,104 @@ def amplifier_response(new_q, baseline_v):
 		# linear
 		# This can be -ve for very verylarge q
 		new_v = 5.02*signal_q - 0.00333*(pow(signal_q,2))
-
 		# nonlinear
 		if signal_q > 139:
-			new_v = 717 - 83.5*math.exp(-(signal_q-max_linear_range)/75.5)
-
-		bkg_electronic = return_rnd_Gaussian(0, g.AVERAGE_ELECTRONIC_NOISE)
+			new_v = max_response - 83.5*math.exp(-(signal_q-max_linear_range)/75.5)
 		new_v += bkg_electronic
 		# add noise
-		gain_v = new_v - baseline_v
+		if baseline_v > 0 and new_q > 0: 
+			gain_v = (new_v - baseline_v)
 
-	elif baseline_v<717:
-		baseline_q = max_linear_range - 75.5*math.log((717-baseline_v) / 83.5)
+	elif baseline_v<max_response:
+		baseline_q = max_linear_range - 75.5*math.log((max_response-baseline_v) / 83.5)
 		signal_q = baseline_q + new_q
 		# again put back into response equation
-		new_v = 717 - 83.5*math.exp(-(signal_q-max_linear_range)/75.5)
-		bkg_electronic = return_rnd_Gaussian(0, g.AVERAGE_ELECTRONIC_NOISE)
+		new_v = max_response - 83.5*math.exp(-(signal_q-max_linear_range)/75.5)
 		new_v += bkg_electronic
 
-		gain_v = new_v - baseline_v
+		if baseline_v > 0 and new_q > 0: 
+			gain_v = (new_v - baseline_v)
 	else:
 		# No gain for any signal with the baseline currently above the maximum
 		gain_v = 0
-		# if baseline is higher than 717 just got to wait until it decays lower...
-		new_v = 717
+		# if baseline is higher than max_response just got to wait until it decays lower...
+		new_v = max_response
 
-	# Stop -ve signals
+	# Stop -ve signals from noise
 	if new_v < 0: 
-		gain_v = 0
 		new_v = 0
-	return gain_v, new_v, signal_q, bkg_electronic
+	# Even with electonic noise max output is 717mV
+	if new_v > max_response:
+		new_v = max_response
 
-def is_beam_present(clock_cycle):
+	if new_q > 0:
+		gain_vq = gain_v / new_q
+	return gain_vq, gain_v, new_v, signal_q, bkg_electronic
+
+# @profile(stream=fp)
+def amplifier_response2(new_q, prebleed_baseline, tau, noise=True, bleed_type='voltage'):
+	'''
+	Return the response of the amplifier
+	Response is ~ linear until 139fC
+	Max linear voltage ~ 633mV at q=139 fC
+	Max voltage readout ~ 717mV for q>>139 fC
+
+	V[mV] = 5.02*q - 0.00333*pow(q,2)    		q<139 fC
+	V[mV] = 717 - 83.5*math.exp(-(q-139)/75.5) 	q>139 fC
+
+	Response as given by Geoff Hall and Mark Raymond
+	'''
+	max_response 		= 729
+	response_v 			= 0
+	signal_q 			= 0
+	bkg_electronic 		= 0
+	gain_v				= 0
+	gain_vq				= 0
+	rate 				= 66.2
+
+	# prebleed = max?
+	# Bleed by either voltage or charge
+	if 'voltage' in bleed_type:
+		baseline_v, _ 	= bleed_off(prebleed_baseline, 0.025, tau)
+		if baseline_v < max_response:
+			baseline_q = -rate*math.log((2*max_response)/(baseline_v+max_response)-1)
+		else:
+			gain_v = 0
+			gain_vq = 0
+			response_v = max_response
+			return gain_vq, gain_v, response_v, baseline_v, 0, 0
+
+	elif 'charge' in bleed_type:   
+		baseline_q, _ = bleed_off(prebleed_baseline, 0.025, tau)
+		# Recalculate baseline vottage based on baseline charge
+		baseline_v = 2*max_response / ( 1 + math.exp( -baseline_q/rate ) ) - max_response
+
+	signal_q = new_q + baseline_q
+
+	# Apply noise if needed
+	if noise: bkg_electronic = return_rnd_Gaussian(0, g.AVERAGE_ELECTRONIC_NOISE)
+
+	response_v = 2*max_response / ( 1 + math.exp( -signal_q/rate ) ) - max_response
+	response_v += bkg_electronic
+
+	if response_v < 0: response_v = 0
+	if response_v > max_response: response_v = max_response
+
+	# if baseline_v > 0:
+	gain_v = (response_v - baseline_v)
+	if new_q > 0:
+			gain_vq = gain_v / new_q
+	# else:
+	# 	gain_v = 0
+	# 	gain_vq = 0
+	# 	response_v = max_response
+
+	return gain_vq, gain_v, response_v, baseline_v, signal_q, bkg_electronic
+
+
+
+# @profile(stream=fp)
+def is_beam_present(clock_cycle, bunch_structure):
 	'''
 	Takes the current clock cycle relative to the first bunch
 
@@ -174,49 +298,18 @@ def is_beam_present(clock_cycle):
 	is_beam = True
 	# Cycle using the modulus, +1 as LHC bunch scheming starts at one, our loop starts at 0
 	# modulo 17 % 3 = 2 (goes in 5 times (17 - 15) = 2 left)
-	mod_clock_cycle = (clock_cycle % 3564)
 
-	# Check if current clock cycle has a colliding bunch
-	if( (mod_clock_cycle > 72) and (mod_clock_cycle <= 80) ) : is_beam =  False
-	if( (mod_clock_cycle > 152) and (mod_clock_cycle <= 160) ) : is_beam = False
-	if( (mod_clock_cycle > 232) and (mod_clock_cycle <= 270) ) : is_beam = False
-	if( (mod_clock_cycle > 342) and (mod_clock_cycle <= 350) ) : is_beam = False
-	if( (mod_clock_cycle > 422) and (mod_clock_cycle <= 430) ) : is_beam = False
-	if( (mod_clock_cycle > 502) and (mod_clock_cycle <= 540) ) : is_beam = False
-	if( (mod_clock_cycle > 612) and (mod_clock_cycle <= 620) ) : is_beam = False
-	if( (mod_clock_cycle > 692) and (mod_clock_cycle <= 700) ) : is_beam = False
-	if( (mod_clock_cycle > 772) and (mod_clock_cycle <= 780) ) : is_beam = False
-	if( (mod_clock_cycle > 852) and (mod_clock_cycle <= 891) ) : is_beam = False
-	if( (mod_clock_cycle > 963) and (mod_clock_cycle <= 971) ) : is_beam = False
-	if( (mod_clock_cycle > 1043) and (mod_clock_cycle <= 1051) ) : is_beam = False
-	if( (mod_clock_cycle > 1123) and (mod_clock_cycle <= 1161) ) : is_beam = False
-	if( (mod_clock_cycle > 1233) and (mod_clock_cycle <= 1241) ) : is_beam = False
-	if( (mod_clock_cycle > 1313) and (mod_clock_cycle <= 1321) ) : is_beam = False
-	if( (mod_clock_cycle > 1393) and (mod_clock_cycle <= 1431) ) : is_beam = False
-	if( (mod_clock_cycle > 1503) and (mod_clock_cycle <= 1511) ) : is_beam = False
-	if( (mod_clock_cycle > 1583) and (mod_clock_cycle <= 1591) ) : is_beam = False
-	if( (mod_clock_cycle > 1663) and (mod_clock_cycle <= 1671) ) : is_beam = False
-	if( (mod_clock_cycle > 1742) and (mod_clock_cycle <= 1782) ) : is_beam = False
-	if( (mod_clock_cycle > 1854) and (mod_clock_cycle <= 1862) ) : is_beam = False
-	if( (mod_clock_cycle > 1934) and (mod_clock_cycle <= 1942) ) : is_beam = False
-	if( (mod_clock_cycle > 2014) and (mod_clock_cycle <= 2052) ) : is_beam = False
-	if( (mod_clock_cycle > 2124) and (mod_clock_cycle <= 2132) ) : is_beam = False
-	if( (mod_clock_cycle > 2204) and (mod_clock_cycle <= 2212) ) : is_beam = False
-	if( (mod_clock_cycle > 2284) and (mod_clock_cycle <= 2322) ) : is_beam = False
-	if( (mod_clock_cycle > 2394) and (mod_clock_cycle <= 2402) ) : is_beam = False
-	if( (mod_clock_cycle > 2474) and (mod_clock_cycle <= 2482) ) : is_beam = False
-	if( (mod_clock_cycle > 2554) and (mod_clock_cycle <= 2562) ) : is_beam = False
-	if( (mod_clock_cycle > 2634) and (mod_clock_cycle <= 2673) ) : is_beam = False
-	if( (mod_clock_cycle > 2745) and (mod_clock_cycle <= 2753) ) : is_beam = False
-	if( (mod_clock_cycle > 2825) and (mod_clock_cycle <= 2833) ) : is_beam = False
-	if( (mod_clock_cycle > 2905) and (mod_clock_cycle <= 2943) ) : is_beam = False
-	if( (mod_clock_cycle > 3015) and (mod_clock_cycle <= 3023) ) : is_beam = False
-	if( (mod_clock_cycle > 3095) and (mod_clock_cycle <= 3103) ) : is_beam = False
-	if( (mod_clock_cycle > 3175) and (mod_clock_cycle <= 3213) ) : is_beam = False
-	if( (mod_clock_cycle > 3285) and (mod_clock_cycle <= 3293) ) : is_beam = False
-	if( (mod_clock_cycle > 3365) and (mod_clock_cycle <= 3373) ) : is_beam = False
-	if( (mod_clock_cycle > 3445) and (mod_clock_cycle <= 3564) ) : is_beam = False
-	# if( mod_clock_cycle > 800 ) : is_beam = False
+	if bunch_structure == 0:
+		is_beam = bs.is_default_beam(clock_cycle)
+
+	if bunch_structure == 1:
+		is_beam = bs.is_Run278770_beam(clock_cycle)
+
+	if bunch_structure == 2:
+		is_beam = bs.is_Run278770_beam(clock_cycle)
+
+	if bunch_structure == 3:
+		is_beam = bs.is_Run276226_beam(clock_cycle)
 
 	return is_beam
 
@@ -266,7 +359,8 @@ def return_HIP_charge():
 	energy_HIP = uniform(0.1,20)
 
 	# MeV -> eV : * math.pow(10,6)
-	# eV -> e 	: / 3.6 ?????
+	# 3.6 eV needed to create an electron hole pair in silicon
+	# eV -> e 	: / 3.6
 	charge_HIP = energy_HIP * math.pow(10,6) / 3.6
 	# print "Charge on HIP : ", charge_HIP
 	return charge_HIP
