@@ -84,6 +84,16 @@ def return_charge_weighting(clusterStripInfo):
 	clusterStripInfo['hist_stripClusterFraction_normed'].GetQuantiles( 1, interval, quantile) 
 	return interval[0]
 
+def return_strip_charge(clusterStripInfo):
+	'''
+	Return strip charge harge deposited based on Data
+	'''
+	x = return_rnd_Uniform()
+	interval = np.array([0.])
+	quantile = np.array([x])
+	clusterStripInfo['hist_inputCharge_normed'].GetQuantiles( 1, interval, quantile) 
+	return interval[0]
+
 def eta_to_scale(eta):
 	'''
 	scale the path of the silicon chip by the entry angle
@@ -214,7 +224,7 @@ def amplifier_response(new_q, baseline_v, noise=True):
 	return gain_vq, gain_v, new_v, signal_q, bkg_electronic
 
 # @profile(stream=fp)
-def amplifier_response2(new_q, prebleed_baseline, tau, noise=True, bleed_type='voltage'):
+def amplifier_response2(new_q, prebleed_baseline, tau, bleed_type='voltage', noise=True, calculate_preAPVCharge=False ):
 	'''
 	Return the response of the amplifier
 	Response is ~ linear until 139fC
@@ -233,6 +243,14 @@ def amplifier_response2(new_q, prebleed_baseline, tau, noise=True, bleed_type='v
 	gain_v				= 0
 	gain_vq				= 0
 	rate 				= 66.2
+	preAPV_q 			= 0
+
+	if calculate_preAPVCharge:
+		if prebleed_baseline < max_response:
+			preAPV_q = -rate*math.log((2*max_response)/(prebleed_baseline+max_response)-1)
+		else: 
+			preAPV_q = -99
+		return preAPV_q
 
 	# prebleed = max?
 	# Bleed by either voltage or charge

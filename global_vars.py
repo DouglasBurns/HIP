@@ -28,7 +28,7 @@ AVE_PROTON_IN_BUNCH					= 1.15e11
 AVE_TIME_FOR_STRIP_HIT				= 100
 
 # in terms of electron charge e (used to be 25000) 21500 good fit
-AVE_CHARGE_DEPOSITED				= 21000
+AVE_CHARGE_DEPOSITED				= 23500
 SIGMA_CHARGE_DEPOSITED				= 3000
 
 # May need to change to bleed off current for capacitor
@@ -49,7 +49,10 @@ tracker_deets = {
 	'TIB2' : {'Occ' : 0.018,	'Occ_Data' : 0.020, 	'SiWidth' : 300 },
 	'TIB3' : {'Occ' : 0.017,	'Occ_Data' : 0.019, 	'SiWidth' : 300 },
 	'TIB4' : {'Occ' : 0.013,	'Occ_Data' : 0.015, 	'SiWidth' : 300 },
+	# 'TOB1' : {'Occ' : 0.019,	'Occ_Data' : 0.050, 	'SiWidth' : 500 },
 	'TOB1' : {'Occ' : 0.019,	'Occ_Data' : 0.026, 	'SiWidth' : 500 },
+
+
 	'TOB2' : {'Occ' : 0.014,	'Occ_Data' : 0.023, 	'SiWidth' : 500 },
 	'TOB3' : {'Occ' : 0.011,	'Occ_Data' : 0.019, 	'SiWidth' : 500 },
 	'TOB4' : {'Occ' : 0.008,	'Occ_Data' : 0.015, 	'SiWidth' : 500 },

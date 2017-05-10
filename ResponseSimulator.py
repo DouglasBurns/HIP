@@ -30,7 +30,7 @@ import global_vars as g
 import mathematical_tools as mt
 import pandas_utils as pu
 
-from read_charge_inputs import charge_inputs
+from read_charge_inputs import charge_inputs, preAPV_charge_from_data
 
 from plots_test import run_tests
 from plots_profile import run_profiles
@@ -56,6 +56,11 @@ def arg_parser():
 		dest = "noise",
 		action = "store_true", 
 		help = "Add noise to simulation" 
+	)
+	parser.add_argument( "-c", "--chargeFromData", 
+		dest = "chargeFromData",
+		action = "store_true", 
+		help = "Generate strip charge from data" 
 	)
 	parser.add_argument( "-T", "--tau",
 		dest = "tau",
@@ -99,6 +104,16 @@ def arg_parser():
 		type = str,
 		help = "Specific part of the tracker" 
 	)
+	parser.add_argument( "--run_charge_reversal",
+		dest = "run_charge_reversal",
+		action = "store_true", 
+		help = "Calculate charge before preamp from data" 
+	)
+	parser.add_argument( "--use_charge_before_preamp",
+		dest = "use_charge_before_preamp",
+		action = "store_true", 
+		help = "Using charge calculated before preamp" 
+	)
 	args = parser.parse_args()
 	return args
 
@@ -120,8 +135,12 @@ def main(args):
 	BEAM  			= args.beam
 	NMIP  			= args.nmips
 	BLEED 			= args.bleedBy
+	stripChargeFromData = args.chargeFromData
 	REGION			= args.tracker_region
 	REGION_DETAILS 	= g.tracker_deets
+
+	calc_preAPV_charge_from_data = args.run_charge_reversal
+	use_preAPV_charge = args.use_charge_before_preamp
 
 	# Testing Distributions
 	if TESTS: 
@@ -132,7 +151,13 @@ def main(args):
 	########################################################################################################################
 	### mV to e @ Baseline = 0mV, 1MIP = 3.75fC = 23500e
 	########################################################################################################################
-	gain_vq, gain_v, _, _, _, _ = mt.amplifier_response2(3.75, 0, TAU, noise=False)
+	_, gain_per_mip, _, _, _, _ = mt.amplifier_response2(3.75, 0, TAU, noise=False)
+	q_per_gain_from_mip = g.AVE_CHARGE_DEPOSITED/gain_per_mip
+	gain_per_q_from_mip = 1/q_per_gain_from_mip
+
+	if calc_preAPV_charge_from_data:
+		preAPV_charge_from_data(gain_per_q_from_mip)
+		return
 
 	########################################################################################################################
 	### Initialisations
@@ -193,6 +218,8 @@ def main(args):
 
 	if REGION:
 		data_charge_inputs = charge_inputs(REGION)
+		# TODO
+		# data_charge_inputs = charge_inputs(REGION, use_preAPV_charge=use_preAPV_charge)
 
 
 	########################################################################################################################
@@ -206,6 +233,7 @@ def main(args):
 		charge_deposited_e, charge_deposited_fC	= 0, 0
 		cluster_charge_deposited_e 				= 0
 		electronic_noise_mV						= 0
+		strip_charge_deposited_e 				= 0
 
 		########################################################################################################################
 		### Calculate number of MIPS in bx (if bx present)
@@ -220,34 +248,42 @@ def main(args):
 		if n_MIP_bx > 0:
 			for i in range(0, n_MIP_bx):
 
-				# restrict eta dependence [-1, 1] (Uniform)
-				eta = mt.return_rnd_Uniform(low = -1, high = 1 )
-				length_scale = mt.eta_to_scale(eta)
-				silicon_pathlength = length_scale * WIDTH/300
-
-				d_mip_variables['track_eta'].append(eta)
-				d_mip_variables['track_length'].append(length_scale*WIDTH)
-
-				# Is the MIP a HIP
-				isHIP = mt.is_HIP(g.HIP_OCCUPANCY)
-				if isHIP:
-					# Where are the HIPs
-					HIPInBX.append(bx)
-					n_HIP_bx 						+= 1
-					n_HIP_total 					+= 1
-					charge_HIP_e 					= mt.return_HIP_charge()
-					cluster_charge_deposited_e 		+= charge_HIP_e
+				if stripChargeFromData:
+					strip_charge_deposited_e += mt.return_strip_charge(data_charge_inputs)
 
 				else:
-					# this depends on the thickness of the chip...
-					charge_MIP_e 		= mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED, scale=silicon_pathlength)
-					cluster_charge_deposited_e 	+= charge_MIP_e
+					# restrict eta dependence [-1, 1] (Uniform)
+					eta = mt.return_rnd_Uniform(low = -1, high = 1 )
+					length_scale = mt.eta_to_scale(eta)
+					silicon_pathlength = length_scale * WIDTH/300
+
+					d_mip_variables['track_eta'].append(eta)
+					d_mip_variables['track_length'].append(length_scale*WIDTH)
+
+					# Is the MIP a HIP
+					isHIP = mt.is_HIP(g.HIP_OCCUPANCY)
+					if isHIP:
+						# Where are the HIPs
+						HIPInBX.append(bx)
+						n_HIP_bx 						+= 1
+						n_HIP_total 					+= 1
+						charge_HIP_e 					= mt.return_HIP_charge()
+						cluster_charge_deposited_e 		+= charge_HIP_e
+
+					else:
+						# this depends on the thickness of the chip...
+						charge_MIP_e 		= mt.return_rnd_Landau(g.AVE_CHARGE_DEPOSITED, g.SIGMA_CHARGE_DEPOSITED, scale=silicon_pathlength)
+						cluster_charge_deposited_e 	+= charge_MIP_e
 
 
 			charge_deposited_e = cluster_charge_deposited_e
 			if REGION:
-				stripClusterFraction 	= mt.return_charge_weighting(data_charge_inputs)
-				charge_deposited_e 		= cluster_charge_deposited_e * stripClusterFraction
+				stripClusterFraction = 1
+				if stripChargeFromData:
+					charge_deposited_e = strip_charge_deposited_e
+				else:
+					stripClusterFraction 	= mt.return_charge_weighting(data_charge_inputs)
+					charge_deposited_e 		= cluster_charge_deposited_e * stripClusterFraction
 
 			if DEBUG:
 				print "-"*50
@@ -321,7 +357,7 @@ def main(args):
 			d_mip_variables['q_Deposited_fC'].append(charge_deposited_fC)
 			d_mip_variables['q_Deposited_e'].append(charge_deposited_e)
 			d_mip_variables['q_ClusterDeposited_e'].append(cluster_charge_deposited_e)
-			d_mip_variables['q_Read_e'].append(signal_gain_v*g.AVE_CHARGE_DEPOSITED/gain_v)
+			d_mip_variables['q_Read_e'].append(signal_gain_v*g.AVE_CHARGE_DEPOSITED/gain_per_mip)
 			d_mip_variables['q_Weight_e'].append(stripClusterFraction)
 
 		########################################################################################################################
@@ -355,25 +391,30 @@ def main(args):
 	elif BEAM == 2 : 	BS = '278345'
 	elif BEAM == 3 : 	BS = '276226'
 
-	bs_dir		= 'Bunch_Structure_'+BS+'/'
+	bs_dir		= BS
 
-	if REGION: 	tk_dir = REGION+'/'
+	if REGION: 	tk_dir = REGION
 	else:		tk_dir = ''	
 
-	tau_dir 	= 'Tau_'+str(int(TAU))+'/'
-	occ_dir 	= 'Occ_'+str(OCC).replace('.', '_')+'/'
+	tau_dir 	= 'Tau_'+str(int(TAU))
+	occ_dir 	= 'Occ_'+str(OCC).replace('.', '_')
 
 	if not REGION:
-		if WIDTH == 300: 	chip_dir = 'TIB/'
-		elif WIDTH == 500: 	chip_dir = 'TOB/'
+		if WIDTH == 300: 	chip_dir = 'TIB'
+		elif WIDTH == 500: 	chip_dir = 'TOB'
 		else: 				chip_dir = ''
 	else:					chip_dir = ''
 
-	bleedtype_dir = BLEED+'_bleeding/'
-	folder_path = base_path + tk_dir + bs_dir + tau_dir + occ_dir + chip_dir + bleedtype_dir
+	if stripChargeFromData:
+		charge_dir = 'chargeFromData'
+	else:
+		charge_dir = 'chargeFromSimulation'
+
+	bleedtype_dir = BLEED+'_bleeding'
+	folder_path = base_path + "_".join([tk_dir, bs_dir, charge_dir, tau_dir, occ_dir, chip_dir, bleedtype_dir]) + '/'
 
 	pu.make_folder_if_not_exists(folder_path)
-	title = "$\\tau = $ {}, occ = {}, beam structure = {}, bleed by {}, {}".format(TAU, OCC, BS, BLEED, chip_dir.replace('/',''))
+	title = "$\\tau = $ {}, occ = {}, bleed by {}, {}, Run {}".format(TAU, OCC,  BLEED, chip_dir.replace('/',''), BS )
 	# pu.df_to_file(folder_path, 'DF.txt', full_simulation)
 
 
