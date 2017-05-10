@@ -36,7 +36,7 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 		label='V_Out',
 	)
 	ax.set_xlim([0,200000])
-	ax.set_ylim([0,720])
+	ax.set_ylim([0,730])
 	ax.set_xlabel('Bunch Crossing ')
 	ax.set_ylabel('V_{out} in APV [mV]')
 	fig.suptitle('Amplifier Response Projection', fontsize=14, fontweight='bold')
