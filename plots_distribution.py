@@ -219,18 +219,18 @@ def run_distributions(title, folder_path, d_mip_variables, sim, NOISE):
 	########################################################################################################################
 	### SIGNAL DEPENDENCE ON BUNCH PRESENCE
 	########################################################################################################################
-	fig = plt.figure(figsize = ( 40, 10 ), dpi = 400)
+	fig = plt.figure(figsize = ( 40, 10 ))
 	ax = fig.add_subplot(1, 1, 1)
 	ax.set_xlim([0,10000])
-	ax.set_ylim([0,720])
+	ax.set_ylim([0,730])
 
 	ax.fill_between(
 		sim['bunchCrossing'],
-		 0, 720, 
-		 where=sim['isBeam']>0,
-		 facecolor='green', 
-		 alpha=0.2,
-		 label='Bunches Present'
+		0, 730, 
+		where=sim['isBeam']>0,
+		facecolor='green', 
+		alpha=0.2,
+		label='Bunches Present'
 	)
 
 	plt.plot(
