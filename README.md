@@ -12,12 +12,12 @@ source bin/env.sh
 python ResponseSimulator.py -r
 ```
 - Take file from local input/* and collate all possible distributions:
--- Original 	```REGION+_Original'''
--- Normalised to 1 	```REGION+_NormTo1'''
--- Cumulative Dist 	```REGION+_CDF'''
--- Cut at 10 000e 	```REGION+_Cut'''
--- Normalised cut at 10 000e 	```REGION+_CutNormTo1'''
--- Cut CDF 	```REGION+_CutCDF'''
+  - Original REGION+_Original
+  - Normalised to 1 REGION+_NormTo1
+  - Cumulative Dist REGION+_CDF
+  - Cut at 10 000e REGION+_Cut
+  - Normalised cut at 10 000e REGION+_CutNormTo1
+  - Cut CDF REGION+_CutCDF
 - Load this file for future simulations
 
 ## Run Simulation
@@ -30,7 +30,8 @@ python ResponseSimulator.py
 ## Most inputs to simulation
 ```
 modules.global_vars.py
-'''
+```
+
 - N_BX = Length of simulation in BX
 - SCD_CUTS = Which cut charge distribution to use. Charge deposition from cut distribution via N samples and via full distribution from Landau throw
 - REGIONS = Region of tracker to simulate
@@ -43,6 +44,6 @@ modules.global_vars.py
 ## Most worker functions
 ```
 modules.mathematical_tools.py
-'''
+```
 - Contains all the functions for modelling the charge and response of the APV
 
