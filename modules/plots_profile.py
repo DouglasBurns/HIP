@@ -12,7 +12,7 @@ import gc
 
 mpl.rcParams['agg.path.chunksize'] = 200000
 
-def run_profiles(title, folder_path, sim, HIPInBX):
+def run_profiles(title, folder_path, sim):
 	'''
 	Plot any projections
 	'''
@@ -24,12 +24,6 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 	########################################################################################################################
 	fig = plt.figure(figsize = ( 20, 10 ), dpi = 400)
 	ax = fig.add_subplot(1, 1, 1)
-
-	for HIP in HIPInBX:
-		label = ''
-		if HIP == HIPInBX[0]: label = 'HIP'
-		plt.axvline( x = HIP, color = 'red', linewidth = 1, alpha = 1, label=label )
-
 	plt.plot(
 		sim['bunchCrossing'], 
 		sim['V_signal_mv'],
@@ -41,7 +35,6 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 	ax.set_ylabel('V_{out} in APV [mV]')
 	fig.suptitle('Amplifier Response Projection', fontsize=14, fontweight='bold')
 	plt.title(title, loc='right')
-
 	leg = plt.legend(loc='best')
 	leg.draw_frame(False)	
 
@@ -55,12 +48,6 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 	########################################################################################################################
 	fig = plt.figure(figsize = ( 40, 10 ), dpi = 400)
 	ax = fig.add_subplot(1, 1, 1)
-
-	for HIP in HIPInBX:
-		label = ''
-		if HIP == HIPInBX[0]: label = 'HIP'
-		plt.axvline( x = HIP, color = 'red', linewidth = 1, alpha = 1, label=label )
-
 	plt.plot(
 		sim['bunchCrossing'], 
 		sim['q_baseline_fC'],
@@ -72,7 +59,6 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 	ax.set_ylabel('Charge in APV [fC]')
 	fig.suptitle('Amplifier Signal Charge Projection', fontsize=14, fontweight='bold')
 	plt.title(title, loc='right')
-
 	leg = plt.legend(loc='best')
 	leg.draw_frame(False)	
 
@@ -86,12 +72,6 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 	########################################################################################################################
 	fig = plt.figure(figsize = ( 20, 10 ), dpi = 400)
 	ax = fig.add_subplot(1, 1, 1)
-
-	for HIP in HIPInBX:
-		label = ''
-		if HIP == HIPInBX[0]: label = 'HIP'
-		plt.axvline( x = HIP, color = 'red', linewidth = 1, alpha = 1, label=label )
-
 	plt.plot(
 		sim['bunchCrossing'], 
 		sim['V_gain_mv'], 
@@ -103,7 +83,6 @@ def run_profiles(title, folder_path, sim, HIPInBX):
 	ax.set_ylim([0,6])
 	ax.set_xlabel('Bunch Crossing ')
 	ax.set_ylabel('Gain [mV/fC]')
-
 	leg = plt.legend(loc='best')
 	leg.draw_frame(False)	
 

@@ -8,8 +8,10 @@ from ROOT import gRandom, TRandom3
 from rootpy.plotting import Hist
 
 import numpy as np
-import global_vars as g
-import bunch_structures as bs
+from modules.global_vars import AVERAGE_ELECTRONIC_NOISE, AVERAGE_ELECTRONIC_NOISE_e
+from modules.bunch_structures import is_default_beam, is_Run278770_beam, is_Run278345_beam, is_Run276226_beam
+from memory_profiler import profile
+
 gRandom = TRandom3()
 gRandom.SetSeed(0)
 # Cache for quicker running
@@ -72,27 +74,66 @@ def return_rnd_Landau(mu, sigma, scale=None):
    	rnd_ld = landau( mu, sigma )
 	return rnd_ld
 
-def return_charge_weighting(clusterStripInfo):
+# @profile
+def return_rnd_number_from_dist(dist):
 	'''
-	clusterStripInfo contains the stripCluster Distribution (+ Normalised)
+	dist contains the stripCluster Distribution (+ Normalised)
 	Throw uniform number [0-1]
 	Integral up to random number gives charge weighting from cluster to strip
 	'''
 	x = return_rnd_Uniform()
 	interval = np.array([0.])
 	quantile = np.array([x])
-	clusterStripInfo['hist_stripClusterFraction_normed'].GetQuantiles( 1, interval, quantile) 
+	dist.GetQuantiles( 1, interval, quantile) 
+	if interval[0] < 500:
+		interval[0] = 0
 	return interval[0]
 
-def return_strip_charge(clusterStripInfo):
+def return_strip_charge(dataChargeDist, n_samples=1):
 	'''
-	Return strip charge harge deposited based on Data
+	Return strip charge deposited based on Data
 	'''
-	x = return_rnd_Uniform()
-	interval = np.array([0.])
-	quantile = np.array([x])
-	clusterStripInfo['hist_inputCharge_normed'].GetQuantiles( 1, interval, quantile) 
-	return interval[0]
+	q=0
+	for n in range(0,n_samples):
+		q+=return_rnd_number_from_dist(dataChargeDist)
+	return q
+
+def return_strip_charge_from_Poisson(dataChargeDist, occupancy, beam_present=True, add_noise=False, add_truncation=False):
+	'''
+	Return the charge based on Poisson
+	Charge distribution should be cut to reduce effects from noise
+	Skip Beam
+	'''
+	if not beam_present: return 0
+	q = return_strip_charge(dataChargeDist, n_samples=return_rnd_Poisson(occupancy))
+	if add_noise: q+=add_q_noise()
+	if add_truncation: q=add_q_truncation(q)
+	return q
+
+def return_strip_charge_per_BX(dataChargeDist, beam_present=True):
+	'''
+	Return the charge based on noisy simulated strip charge. 
+	Once every BX
+	'''
+	if not beam_present: return 0
+	else: return return_strip_charge(dataChargeDist)
+
+def return_strip_charge_from_Samples(dataChargeDist, n_samples=1, beam_present=True, add_noise=False, add_truncation=False):
+	'''
+	Return the charge by sampling noisy simulated strip charge
+	'''
+	if not beam_present: return 0
+	q = return_strip_charge(dataChargeDist, n_samples=n_samples)
+	if add_noise: q+=add_q_noise()
+	if add_truncation: q = add_q_truncation(q)
+	return q
+
+def return_strip_charge_from_data_fit(fit):
+	'''
+	Return strip charge based on fit to data charge distribution
+	'''
+	q = fit.GetRandom()
+	return q
 
 def eta_to_scale(eta):
 	'''
@@ -129,7 +170,6 @@ def charge_transformation(charge_deposited, to_fC=False, to_e=False):
 	# set default
 	if charge_deposited == 0: return 0
 	e_charge_in_fC = 1.602e-4
-	if not to_fC and not to_e: to_fC = True
 
 	if to_fC: return charge_deposited*e_charge_in_fC
 	elif to_e: return charge_deposited/e_charge_in_fC
@@ -153,10 +193,25 @@ def time_transformation(time, to_clock_cycle=False, to_us=False):
 def mv_to_e(mV):
 	'''
 	Transform mv to e in the linear regime (low occupancy regimes)
+	5.5 mV/fC at 0mV baseline
 	'''
-	return
+	return charge_transformation(mV/5.5, to_e=True)
 
-def amplifier_response(new_q, baseline_v, noise=True):
+def bleed_input(prebleed_baseline, tau, bleedby='Charge'):
+	'''
+	Bleed the current voltage/charge in/on the apv
+	'''
+	if bleedby == 'Charge':   
+		baseline_q, _ = bleed_off(prebleed_baseline, 0.025, tau)
+		baseline_v = response(baseline_q, q_to_v=True)
+
+	if bleedby == 'Voltage':
+		baseline_v, _ 	= bleed_off(prebleed_baseline, 0.025, tau)
+		baseline_q = response(baseline_v, v_to_q=True)
+
+	return baseline_v, baseline_q
+
+def response(val, q_to_v=False, v_to_q=False):
 	'''
 	Return the response of the amplifier
 	Response is ~ linear until 139fC
@@ -168,63 +223,25 @@ def amplifier_response(new_q, baseline_v, noise=True):
 
 	Response as given by Geoff Hall and Mark Raymond
 	'''
-	max_linear_range 	= 139
-	max_response 		= 717
-	new_v 				= 0
-	signal_q 			= 0
-	bkg_electronic 		= 0
-	gain_v				= 0
-	gain_vq				= 0
+	if q_to_v == v_to_q:
+		print "Set either q_to_v or v_to_q to True"
+		return
 
-	if noise: bkg_electronic = return_rnd_Gaussian(0, g.AVERAGE_ELECTRONIC_NOISE)
+	max_response 		= 729
+	rate 				= 66.2
 
-	# Finding the baseline charge in chip in fC
-	# Solution to the response equation
-	if baseline_v < 633:
-		baseline_q = (-5.02+math.sqrt(pow(5.02,2)-4*0.00333*baseline_v)) / (-2*0.00333)
-		signal_q = baseline_q + new_q
-		# Add electronic noise
-
-		# Now put back into response equation
-		# linear
-		# This can be -ve for very verylarge q
-		new_v = 5.02*signal_q - 0.00333*(pow(signal_q,2))
-		# nonlinear
-		if signal_q > 139:
-			new_v = max_response - 83.5*math.exp(-(signal_q-max_linear_range)/75.5)
-		new_v += bkg_electronic
-		# add noise
-		if baseline_v > 0 and new_q > 0: 
-			gain_v = (new_v - baseline_v)
-
-	elif baseline_v<max_response:
-		baseline_q = max_linear_range - 75.5*math.log((max_response-baseline_v) / 83.5)
-		signal_q = baseline_q + new_q
-		# again put back into response equation
-		new_v = max_response - 83.5*math.exp(-(signal_q-max_linear_range)/75.5)
-		new_v += bkg_electronic
-
-		if baseline_v > 0 and new_q > 0: 
-			gain_v = (new_v - baseline_v)
+	if v_to_q:
+		if val < max_response:
+			return -rate*math.log((2*max_response)/(val+max_response)-1)
+		else: 
+			return max_response
+	elif q_to_v:
+		return 2*max_response / ( 1 + math.exp( -val/rate ) ) - max_response
 	else:
-		# No gain for any signal with the baseline currently above the maximum
-		gain_v = 0
-		# if baseline is higher than max_response just got to wait until it decays lower...
-		new_v = max_response
-
-	# Stop -ve signals from noise
-	if new_v < 0: 
-		new_v = 0
-	# Even with electonic noise max output is 717mV
-	if new_v > max_response:
-		new_v = max_response
-
-	if new_q > 0:
-		gain_vq = gain_v / new_q
-	return gain_vq, gain_v, new_v, signal_q, bkg_electronic
+		print "If you got here, I'm impressed"
 
 # @profile(stream=fp)
-def amplifier_response2(new_q, prebleed_baseline, tau, bleed_type='voltage', noise=True, calculate_preAPVCharge=False ):
+def amplifier_response(baseline_q, new_q, noise=True ):
 	'''
 	Return the response of the amplifier
 	Response is ~ linear until 139fC
@@ -236,62 +253,38 @@ def amplifier_response2(new_q, prebleed_baseline, tau, bleed_type='voltage', noi
 
 	Response as given by Geoff Hall and Mark Raymond
 	'''
-	max_response 		= 729
-	response_v 			= 0
-	signal_q 			= 0
-	bkg_electronic 		= 0
-	gain_v				= 0
-	gain_vq				= 0
-	rate 				= 66.2
-	preAPV_q 			= 0
+	noise_q, gain_mV, gain_mV_fC = 0, 0, 0
 
-	if calculate_preAPVCharge:
-		if prebleed_baseline < max_response:
-			preAPV_q = -rate*math.log((2*max_response)/(prebleed_baseline+max_response)-1)
-		else: 
-			preAPV_q = -99
-		return preAPV_q
+	if noise: 
+		noise_q = return_rnd_Gaussian(0, AVERAGE_ELECTRONIC_NOISE)
 
-	# prebleed = max?
-	# Bleed by either voltage or charge
-	if 'voltage' in bleed_type:
-		baseline_v, _ 	= bleed_off(prebleed_baseline, 0.025, tau)
-		if baseline_v < max_response:
-			baseline_q = -rate*math.log((2*max_response)/(baseline_v+max_response)-1)
-		else:
-			gain_v = 0
-			gain_vq = 0
-			response_v = max_response
-			return gain_vq, gain_v, response_v, baseline_v, 0, 0
+	signal_q = new_q + baseline_q + noise_q
 
-	elif 'charge' in bleed_type:   
-		baseline_q, _ = bleed_off(prebleed_baseline, 0.025, tau)
-		# Recalculate baseline vottage based on baseline charge
-		baseline_v = 2*max_response / ( 1 + math.exp( -baseline_q/rate ) ) - max_response
+	baseline_v = response(baseline_q, q_to_v=True)
+	readout_v = response(signal_q, q_to_v=True)
+	
+	if readout_v < 0: 
+		readout_v = 0
 
-	signal_q = new_q + baseline_q
+	if new_q > 0: 
+		gain_mV = (readout_v - baseline_v)
+		gain_mV_fC = gain_mV / new_q
 
-	# Apply noise if needed
-	if noise: bkg_electronic = return_rnd_Gaussian(0, g.AVERAGE_ELECTRONIC_NOISE)
+	return readout_v, gain_mV, gain_mV_fC, signal_q, noise_q
 
-	response_v = 2*max_response / ( 1 + math.exp( -signal_q/rate ) ) - max_response
-	response_v += bkg_electronic
+def add_q_noise():
+	'''
+	Add some noise
+	'''
+	n = return_rnd_Gaussian(0, AVERAGE_ELECTRONIC_NOISE_e)
+	return n
 
-	if response_v < 0: response_v = 0
-	if response_v > max_response: response_v = max_response
-
-	# if baseline_v > 0:
-	gain_v = (response_v - baseline_v)
-	if new_q > 0:
-			gain_vq = gain_v / new_q
-	# else:
-	# 	gain_v = 0
-	# 	gain_vq = 0
-	# 	response_v = max_response
-
-	return gain_vq, gain_v, response_v, baseline_v, signal_q, bkg_electronic
-
-
+def add_q_truncation(q):
+	'''
+	Add Charge Truncation
+	'''
+	if q > 62500: q=62500
+	return q
 
 # @profile(stream=fp)
 def is_beam_present(clock_cycle, bunch_structure):
@@ -318,16 +311,19 @@ def is_beam_present(clock_cycle, bunch_structure):
 	# modulo 17 % 3 = 2 (goes in 5 times (17 - 15) = 2 left)
 
 	if bunch_structure == 0:
-		is_beam = bs.is_default_beam(clock_cycle)
+		is_beam = is_default_beam(clock_cycle)
 
 	if bunch_structure == 1:
-		is_beam = bs.is_Run278770_beam(clock_cycle)
+		is_beam = is_Run278770_beam(clock_cycle)
 
 	if bunch_structure == 2:
-		is_beam = bs.is_Run278770_beam(clock_cycle)
+		is_beam = is_Run278345_beam(clock_cycle)
 
 	if bunch_structure == 3:
-		is_beam = bs.is_Run276226_beam(clock_cycle)
+		is_beam = is_Run276226_beam(clock_cycle)
+
+	if bunch_structure == -1:
+		is_beam = is_on_beam(clock_cycle)
 
 	return is_beam
 
@@ -360,6 +356,7 @@ def tracker_hits(occupancy, particles_in_bx, ave_particles_in_bx ):
 
 	n_tracker_hits = return_rnd_Poisson( p_strip_hit )
 	return n_tracker_hits
+
 
 def is_HIP(HIPocc):
 	'''

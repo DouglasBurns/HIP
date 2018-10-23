@@ -215,4 +215,11 @@ def is_Run276226_beam(clock_cycle):
 	if( (mod_clock_cycle > 3223) and (mod_clock_cycle <= 3563) ) 	: is_beam = False
 	return is_beam
 
+def is_on_beam(clock_cycle):
+	'''
+	The default beam structure
+	'''
+	is_beam = True
+	return is_beam
+
 

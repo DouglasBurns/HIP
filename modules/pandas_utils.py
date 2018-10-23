@@ -6,11 +6,15 @@ pd.set_option('display.max_colwidth', 4096)
 pd.set_option('display.max_rows', 100)
 pd.set_option('display.width', 1000)
 
-def dict_to_df(d):
+def dict_to_df(d=None, cols=None):
 	'''
-	Transform a dictionary nto a dataframe
+	Transform a dictionary into a dataframe
+	cols = ["A","B","C"]
 	'''
-	df = pd.DataFrame(d)
+	if not cols and d:
+		df = pd.DataFrame(d)
+	else: 
+		df = pd.DataFrame(columns=cols)
 	return df
 
 def df_to_file(filepath, filename, df):
@@ -55,9 +59,8 @@ def append_to_df(df, df_new):
 	return df
 
 def make_folder_if_not_exists(folder):
-	try:
+	if not os.path.exists(folder):
 		os.makedirs(folder)
-	except:
-		print "Could not create {} ".format(folder)
+		print "Created {} ".format(folder)
 	return
         
